@@ -1,0 +1,68 @@
+# ---------------------------------------------------------------------------
+# Secrets & local configuration — never commit credentials.
+# Backend secrets live in `dotnet user-secrets` (outside the repo);
+# frontend settings in .env.local (see frontend/.env.example).
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+*.pfx
+*.pem
+secrets.json
+
+# ---------------------------------------------------------------------------
+# .NET
+# ---------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+publish/
+TestResults/
+*.trx
+coverage*.xml
+*.user
+*.suo
+*.rsuser
+.vs/
+*.swp
+
+# Local SQLite fallback databases (development / tests)
+*.db
+*.db-shm
+*.db-wal
+
+# ---------------------------------------------------------------------------
+# Node / Next.js
+# ---------------------------------------------------------------------------
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Python (asset tooling)
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+
+# ---------------------------------------------------------------------------
+# OS / editors
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json

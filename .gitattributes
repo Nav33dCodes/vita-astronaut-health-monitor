@@ -1,0 +1,23 @@
+# Normalise line endings in the repository; check out with native endings.
+* text=auto
+
+# Shell scripts must keep LF to run on Linux/macOS (CI, containers).
+*.sh text eol=lf
+
+# Windows-specific files keep CRLF.
+*.ps1 text eol=crlf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Binary assets — never diff or normalise.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+
+# Generated EF Core migration designers: keep diffs readable.
+**/Migrations/*.Designer.cs linguist-generated=true
+**/Migrations/*ModelSnapshot.cs linguist-generated=true

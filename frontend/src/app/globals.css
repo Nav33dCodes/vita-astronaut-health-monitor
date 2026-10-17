@@ -1,0 +1,225 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens
+   Dark  — "Mission Control Premium": deep navy, HUD accents, glass surfaces
+   Light — "Clean Orbit": airy minimalism with subtle frosted glass
+   Components only use these tokens, so both themes stay in sync.
+--------------------------------------------------------------------------- */
+@theme {
+  --color-canvas: #04060c;
+  --color-panel: #0a0f1c;
+  --color-panel-raised: #111a2e;
+  --color-line: rgb(148 163 184 / 0.12);
+  --color-line-strong: rgb(148 163 184 / 0.24);
+  --color-ink: #e8eef9;
+  --color-muted: #8494b2;
+  --color-faint: #56627d;
+  --color-accent: #22d3ee;
+  --color-accent-ink: #031318;
+  --color-violet: #a78bfa;
+  --color-nominal: #34d399;
+  --color-caution: #fbbf24;
+  --color-critical: #fb4d6d;
+  /* Tint used for hover/fill overlays: white on dark, slate on light. */
+  --color-overlay: #ffffff;
+  --color-track: rgb(148 163 184 / 0.1);
+  --color-scrim: rgb(2 4 10 / 0.72);
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --animate-pulse-ring: pulse-ring 2s ease-out infinite;
+  --animate-blink: blink 1.6s ease-in-out infinite;
+  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-page-in: page-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+
+  @keyframes pulse-ring {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-critical) 45%, transparent); }
+    100% { box-shadow: 0 0 0 14px transparent; }
+  }
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+  --animate-heartbeat: heartbeat var(--beat, 1s) ease-out infinite;
+  --animate-tick: tick 0.6s ease-out;
+
+  @keyframes heartbeat {
+    0%, 40%, 100% { transform: scale(1); }
+    12% { transform: scale(1.28); }
+    24% { transform: scale(1.05); }
+  }
+  @keyframes tick {
+    from { opacity: 0.35; filter: brightness(1.6); }
+    to { opacity: 1; filter: none; }
+  }
+  @keyframes page-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Surface recipes, overridden per theme. */
+:root {
+  --glass-bg: linear-gradient(180deg, rgb(17 26 46 / 0.55), rgb(10 15 28 / 0.75));
+  --glass-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.04), 0 24px 48px -28px rgb(0 0 0 / 0.7);
+  --glass-blur: 16px;
+  --hud-bracket: color-mix(in srgb, var(--color-accent) 60%, transparent);
+  --glow-strength: 45%;
+  --page-bg:
+    radial-gradient(ellipse 70% 45% at 50% -12%, rgb(34 211 238 / 0.11), transparent 65%),
+    radial-gradient(ellipse 45% 35% at 100% 0%, rgb(167 139 250 / 0.08), transparent 60%),
+    linear-gradient(rgb(148 163 184 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 0.035) 1px, transparent 1px);
+  --page-bg-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+}
+
+:root[data-theme="light"] {
+  --color-canvas: #f4f6fa;
+  --color-panel: #ffffff;
+  --color-panel-raised: #eef2f7;
+  --color-line: rgb(15 23 42 / 0.07);
+  --color-line-strong: rgb(15 23 42 / 0.13);
+  --color-ink: #0b1220;
+  --color-muted: #55647e;
+  --color-faint: #94a3b8;
+  --color-accent: #0891b2;
+  --color-accent-ink: #ffffff;
+  --color-violet: #7c3aed;
+  --color-nominal: #059669;
+  --color-caution: #d97706;
+  --color-critical: #e11d48;
+  --color-overlay: #0f172a;
+  --color-track: rgb(15 23 42 / 0.07);
+  --color-scrim: rgb(15 23 42 / 0.28);
+
+  --glass-bg: linear-gradient(180deg, rgb(255 255 255 / 0.82), rgb(255 255 255 / 0.62));
+  --glass-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.9),
+    0 1px 2px 0 rgb(15 23 42 / 0.04),
+    0 12px 32px -18px rgb(15 23 42 / 0.16);
+  --glass-blur: 20px;
+  --hud-bracket: color-mix(in srgb, var(--color-accent) 45%, transparent);
+  --glow-strength: 22%;
+  /* Pastel aurora + fine dot grid: minimal, but not plain white. */
+  --page-bg:
+    radial-gradient(ellipse 60% 40% at 15% -10%, rgb(8 145 178 / 0.10), transparent 65%),
+    radial-gradient(ellipse 50% 40% at 95% 0%, rgb(124 58 237 / 0.07), transparent 60%),
+    radial-gradient(ellipse 60% 50% at 50% 110%, rgb(5 150 105 / 0.05), transparent 60%),
+    radial-gradient(rgb(15 23 42 / 0.07) 1px, transparent 1px);
+  --page-bg-size: 100% 100%, 100% 100%, 100% 100%, 22px 22px;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  color: var(--color-ink);
+  background-color: var(--color-canvas);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/*
+ * The decorative backdrop (aurora + grid) sits on its own fixed, GPU-composited layer.
+ * background-attachment: fixed on <body> would force a full-page repaint on every scroll
+ * and every content change — the main cause of janky navigation.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--page-bg);
+  background-size: var(--page-bg-size);
+  transform: translateZ(0);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+}
+
+/* Small uppercase mono label — the HUD "voice". A utility so variants work. */
+@utility hud-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+@layer components {
+  /* Glass-look surface used by every panel. Translucent gradient only — no backdrop blur,
+     because blurring behind dozens of cards makes every repaint expensive. */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--color-line);
+    box-shadow: var(--glass-shadow);
+    transition: border-color 0.2s ease, box-shadow 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Real frosted blur, reserved for the few surfaces that float over content
+     (sidebar, top bar, dialogs) where it is actually visible. */
+  .glass-blur {
+    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  }
+
+  /* HUD corner brackets (top-left + bottom-right). */
+  .hud-frame {
+    position: relative;
+  }
+  .hud-frame::before,
+  .hud-frame::after {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    pointer-events: none;
+    border-color: var(--hud-bracket);
+  }
+  .hud-frame::before {
+    top: -1px;
+    left: -1px;
+    border-top: 1px solid;
+    border-left: 1px solid;
+    border-top-left-radius: 16px;
+  }
+  .hud-frame::after {
+    right: -1px;
+    bottom: -1px;
+    border-right: 1px solid;
+    border-bottom: 1px solid;
+    border-bottom-right-radius: 16px;
+  }
+
+  .glow-critical {
+    border-color: color-mix(in srgb, var(--color-critical) 50%, transparent);
+    box-shadow:
+      var(--glass-shadow),
+      0 0 0 1px color-mix(in srgb, var(--color-critical) 14%, transparent),
+      0 0 32px -8px color-mix(in srgb, var(--color-critical) var(--glow-strength), transparent);
+  }
+  .glow-caution {
+    border-color: color-mix(in srgb, var(--color-caution) 38%, transparent);
+    box-shadow:
+      var(--glass-shadow),
+      0 0 28px -12px color-mix(in srgb, var(--color-caution) var(--glow-strength), transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AstroHealth.Api/AstroHealth.Api.csproj" />
+    <Project Path="src/AstroHealth.Application/AstroHealth.Application.csproj" />
+    <Project Path="src/AstroHealth.Domain/AstroHealth.Domain.csproj" />
+    <Project Path="src/AstroHealth.Infrastructure/AstroHealth.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AstroHealth.Tests/AstroHealth.Tests.csproj" />
+  </Folder>
+</Solution>

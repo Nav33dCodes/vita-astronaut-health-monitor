@@ -1,124 +1,183 @@
-# AstroHealth: astronaut health monitoring
+<div align="center">
 
-Built for the NASA Space Apps 2026 challenge **"Create Health Monitoring Software for Astronauts on Space Missions"** (Intermediate).
+<img src="docs/assets/logo-source.png" alt="VITA logo" width="96" />
 
-Flight surgeons record crew vitals. A rule engine checks each reading against NASA-style safe ranges and raises **warning** or **critical** alerts. The dashboard shows the health of every crew member at a glance.
+# VITA
 
-| Layer    | Stack |
-|----------|-------|
-| API      | .NET 10, ASP.NET Core Minimal APIs, EF Core 10 (SQLite), FluentValidation, OpenAPI + Scalar |
-| Frontend | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, TanStack Query, React Hook Form + Zod, Recharts |
-| Tests    | xUnit: domain unit tests and API integration tests (`WebApplicationFactory`) |
+**Vital Integrated Telemetry for Astronauts**
 
-## Run it
+Real-time crew health monitoring for long-duration space missions.
+
+[![NASA Space Apps 2026](https://img.shields.io/badge/NASA_Space_Apps-2026-0B3D91?style=flat-square)](https://www.spaceappschallenge.org/)
+[![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
+[![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://neon.tech/)
+[![SignalR](https://img.shields.io/badge/Realtime-SignalR-0891B2?style=flat-square)](https://learn.microsoft.com/aspnet/core/signalr/introduction)
+
+[Challenge](#the-challenge) · [Features](#features) · [Architecture](#architecture) · [Getting started](#getting-started) · [API](#api)
+
+</div>
+
+---
+
+## The challenge
+
+Built for the **2026 NASA Space Apps Challenge**: *Create Health Monitoring Software for Astronauts on Space Missions*.
+
+Long-duration missions expose crews to radiation, isolation, altered gravity and limited medical support. On a mission far from Earth, the crew and flight surgeons need to spot deterioration early and act on it, often before a single reading crosses a limit.
+
+## Our solution
+
+VITA is a mission-control style platform that streams every astronaut's vitals in real time, evaluates each reading against clinical safe ranges, and turns raw telemetry into clear, prioritised action:
+
+- **See** the whole crew's health at a glance, live.
+- **Catch** problems early with an early-warning score and trend detection, not just fixed limits.
+- **Act** through an alert workflow that escalates automatically when nobody responds.
+- **Report** with print-ready medical PDFs and analyst-grade Excel workbooks.
+
+## Features
+
+| | |
+|---|---|
+| **Live monitoring** | Bedside-monitor view of every crew member over SignalR, with heart rate, SpO₂, blood pressure, temperature, respiration and radiation. Signal quality (live, stale or lost) is shown for each stream, and an auto-cycling wall-display mode is available. |
+| **Clinical alerting** | Every reading is checked against reference ranges based on NASA-STD-3001. Repeated findings are de-duplicated, an alert that worsens is escalated, and every alert follows an `Open → Acknowledged → Resolved` lifecycle. |
+| **Automatic escalation** | A critical alert left unacknowledged for 2 minutes triggers a full-screen master alarm, an alarm tone and a desktop notification. It climbs one level every 5 minutes after that. |
+| **Early warning** | Early Warning Score adapted from NEWS2, on a 0–15 scale. Trend detection fits a line to the last 60 minutes, reports only real deterioration, and estimates when a safe limit will be crossed. |
+| **Reports** | PDF medical and fleet reports with vector charts. Excel workbooks contain real tables, live conditional formatting and formula-driven summaries. Reports are generated on the server and show live progress in the app. |
+| **Operations** | Missions, crew roster, alert console, live event log, system status and protocol reference pages. |
+| **Built to run** | ETag/304 and Brotli compression, output caching, offline-tolerant client cache, data retention with hourly rollups, rate limiting and health probes. |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    S[Sensors / Simulator] --> V[Vital service]
+    V --> E[Health evaluator<br/>+ early warning]
+    E --> DB[(PostgreSQL<br/>Neon)]
+    E --> A[Alerts &<br/>escalation engine]
+    A --> H{{SignalR hub}}
+    V --> H
+    H --> W[Next.js dashboard]
+    W -->|REST + ETag| API[ASP.NET Core API]
+    API --> DB
+    API --> R[PDF / Excel<br/>report engine]
+```
+
+The backend follows **Clean Architecture**. Clinical rules live in a dependency-free domain layer, so they are fully unit-tested and reused by both the API and the reports.
+
+```
+backend/
+  src/
+    AstroHealth.Domain           Entities, health evaluator, early-warning score, trend analysis
+    AstroHealth.Application      Use cases, contracts, validation, escalation, report assembly
+    AstroHealth.Infrastructure   EF Core (PostgreSQL), migrations, background services, PDF/Excel rendering
+    AstroHealth.Api              Minimal APIs, SignalR hub, caching, ProblemDetails, rate limiting
+  tests/AstroHealth.Tests        Unit + integration tests
+frontend/                        Next.js 16 app (App Router)
+docs/assets/                     Brand and challenge assets
+```
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| **API** | .NET 10, ASP.NET Core Minimal APIs, SignalR, EF Core 10, FluentValidation, OpenAPI + Scalar |
+| **Data** | PostgreSQL on Neon (production) · SQLite (zero-setup local development) |
+| **Reports** | QuestPDF (PDF) · ClosedXML (Excel) |
+| **Frontend** | Next.js 16, React 19, TypeScript, Tailwind CSS 4, TanStack Query, Recharts, Zod |
+| **Quality** | xUnit unit and integration tests, typed API contracts, strict TypeScript and ESLint |
+
+## Getting started
+
+**Prerequisites:** [.NET 10 SDK](https://dotnet.microsoft.com/download) and [Node.js 20+](https://nodejs.org/).
 
 ```bash
-# 1. API → http://localhost:5080  (API docs: http://localhost:5080/scalar)
+git clone https://github.com/Nav33dCodes/vita-astronaut-health-monitor.git
+cd vita-astronaut-health-monitor
+```
+
+**1. Start the API** on http://localhost:5080. Interactive docs are at `/scalar`.
+
+```bash
 cd backend
 dotnet run --project src/AstroHealth.Api
+```
 
-# 2. Frontend → http://localhost:3000
+Out of the box, development uses a local SQLite database. On startup the API seeds demo missions and crew and streams simulated telemetry, so no setup is needed.
+
+**2. Start the dashboard** on http://localhost:3000.
+
+```bash
 cd frontend
+cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-In Development, the API applies the EF Core migrations on startup. It also seeds 3 missions, 8 astronauts and 3 days of vitals, including a few built-in medical scenarios. To start over, delete `backend/src/AstroHealth.Api/astrohealth.db`.
+<details>
+<summary><b>Use PostgreSQL (Neon) instead of SQLite</b></summary>
+
+Secrets are stored with `dotnet user-secrets`, outside the repository. Neon's `postgresql://` URLs are accepted as-is.
 
 ```bash
-cd backend && dotnet test      # 23 tests
-```
-
-## Database (Neon PostgreSQL)
-
-Production uses **PostgreSQL on Neon**. Development falls back to a local SQLite file, so the project runs right after cloning.
-
-```bash
-# Point local development at Neon. Secrets stay in your user profile, never in git.
 cd backend
 dotnet user-secrets set "Database:Provider" "Postgres" --project src/AstroHealth.Api
-dotnet user-secrets set "ConnectionStrings:Default" "postgresql://...neon.tech/neondb?sslmode=require" --project src/AstroHealth.Api
+dotnet user-secrets set "ConnectionStrings:Default" "postgresql://<user>:<password>@<host>-pooler.<region>.aws.neon.tech/neondb?sslmode=require" --project src/AstroHealth.Api
 ```
 
-Production uses environment variables: `ConnectionStrings__Default` and `Database__Provider=Postgres`.
+Migrations run automatically on startup over Neon's direct endpoint. The app itself uses the pooled endpoint.
 
-- **Pooled and direct connections:** the app uses Neon's pooled endpoint (`-pooler`). Migrations automatically switch to the direct endpoint, because PgBouncer can't hold the migration lock. An optional `ConnectionStrings:Migrations` setting overrides this.
-- **Connection strings:** Neon `postgresql://` URLs are accepted as-is. TLS is enforced, and cold starts are covered by connection retries.
-- **Retention:** raw readings are kept for 7 days. After that they are rolled into hourly `VitalRollups` (kept 730 days), so storage stays bounded and long-range charts still work. Configure it under `Retention`.
-- **Migrations** apply automatically on startup. To add one: `dotnet ef migrations add <Name> -p src/AstroHealth.Infrastructure -s src/AstroHealth.Infrastructure -o Persistence/Migrations`
+In production, set `ConnectionStrings__Default` and `Database__Provider=Postgres` as environment variables.
+</details>
 
-## Architecture (backend)
+<details>
+<summary><b>Configuration</b></summary>
 
-```
-src/
-  AstroHealth.Domain          Entities, enums, Result/Error, HealthEvaluator rule engine (no dependencies)
-  AstroHealth.Application     Use-case services, request/response contracts, validators, IAppDbContext
-  AstroHealth.Infrastructure  EF Core DbContext, configurations, migrations, seeding, health checks
-  AstroHealth.Api             Minimal API endpoints, validation filter, ProblemDetails, CORS, rate limiting
-tests/AstroHealth.Tests       Domain unit tests and HTTP integration tests
-```
+| Setting | Purpose | Default |
+|---|---|---|
+| `Simulator:Enabled` / `IntervalSeconds` | Simulated sensor stream for crew on active missions | on in Development, 5 s |
+| `Escalation:CriticalAckMinutes` / `WarningAckMinutes` / `RepeatMinutes` | Escalation timing | 2 / 15 / 5 min |
+| `Retention:RawRetentionDays` / `RollupRetentionDays` | Raw telemetry and hourly rollup retention | 7 / 730 days |
+| `Cors:AllowedOrigins` | Allowed frontend origins | `http://localhost:3000` in Development |
 
-Key design decisions:
-- **Result pattern** instead of exceptions for expected failures. Each `Error` maps to an RFC 9457 ProblemDetails response (`404`, `409`, `400`) with a machine-readable `code`.
-- **Rich domain model**: alert lifecycle rules (`Open → Acknowledged → Resolved`) live in `HealthAlert`, and invalid transitions return `409`.
-- **Alert de-duplication with escalation**: a repeated warning for the same metric is suppressed, but warning → critical always raises a new alert.
-- **Derived health status** (`Nominal / Caution / Critical / Unknown`) is computed from unresolved alerts, and status filtering runs in the database.
-- Readings that are physically impossible (sensor faults) are rejected by validation. Readings that are only unhealthy are accepted and raise alerts.
+</details>
 
-## API overview (`/api/v1`)
+## API
 
-| Method | Route | Purpose |
-|--------|-------|---------|
-| GET | `/dashboard/summary` | Fleet-wide health overview |
-| GET/POST | `/missions` | List / create missions |
-| GET/PUT/DELETE | `/missions/{id}` | Read / update / delete (409 if crew assigned) |
-| PATCH | `/missions/{id}/status` | Change mission status |
-| GET/POST | `/astronauts` | Search (search, missionId, status, paging) / create |
-| GET/PUT/DELETE | `/astronauts/{id}` | Detail with latest reading / update / delete |
-| GET/POST | `/astronauts/{id}/vitals` | History (from, to, paging) / record a reading (returns any alerts it raised) |
-| GET | `/astronauts/{id}/vitals/stats?hours=24` | Min/max/avg per metric |
-| GET | `/vitals/thresholds` | Safe ranges per metric |
-| GET | `/alerts` | Filter by status, severity, astronaut |
-| POST | `/alerts/{id}/acknowledge` · `/alerts/{id}/resolve` | Alert lifecycle |
-| GET | `/health/live` · `/health/ready` | Liveness / readiness probes |
+REST endpoints are versioned under `/api/v1`. The full interactive reference is at `/scalar` when running in Development.
 
-## Real-time monitoring (SignalR)
+| Area | Endpoints |
+|---|---|
+| Dashboard | `GET /dashboard/summary` |
+| Crew | `GET·POST /astronauts` · `GET·PUT·DELETE /astronauts/{id}` |
+| Vitals | `GET·POST /astronauts/{id}/vitals` · `GET …/vitals/series` · `GET …/vitals/stats` · `GET /telemetry/snapshot` |
+| Alerts | `GET /alerts` · `POST /alerts/{id}/acknowledge` · `POST /alerts/{id}/resolve` |
+| Early warning | `GET /assessments` · `GET /astronauts/{id}/assessment` · `GET /early-warning/scoring` |
+| Missions | `GET·POST /missions` · `GET·PUT·DELETE /missions/{id}` · `PATCH /missions/{id}/status` |
+| Reports | `GET /reports/fleet.pdf` · `/reports/crew.xlsx` · `/reports/alerts.xlsx` · `/reports/astronauts/{id}.pdf` · `/reports/astronauts/{id}/vitals.xlsx` |
+| System | `GET /system/status` · `GET /vitals/thresholds` · `/health/live` · `/health/ready` |
+| Real-time | SignalR hub at `/hubs/telemetry`, with the events `ReadingRecorded`, `AlertRaised`, `AlertUpdated` and `AlertEscalated` |
 
-```
-Telemetry Simulator ──► VitalService ──► DB + HealthEvaluator ──► ITelemetryPublisher
- (BackgroundService)                                                    │
-                                                         SignalR hub /hubs/telemetry
-                                                                        │
-                       Next.js RealtimeProvider ◄───────────────────────┘
-                       ├─ live buffers   → Live Monitor tiles, sparklines
-                       ├─ event store    → Event Log, Overview feed, throughput chart
-                       ├─ query cache    → coalesced invalidations (no refetch storms)
-                       └─ toasts + chime → AlertRaised (critical)
+## Testing
+
+```bash
+cd backend
+dotnet test
 ```
 
-- **Hub events:** `ReadingRecorded`, `AlertRaised`, `AlertUpdated`. The client calls `Ping()` to measure latency.
-- **Simulator:** in Development it streams vitals every 5 s for crew on *active* missions, with occasional episodes (tachycardia, hypoxia, fever, hypertension, solar particle event). Configure it under `Simulator` in `appsettings.Development.json`.
-- **Charts** use `GET /astronauts/{id}/vitals/series?hours&buckets`. The data is downsampled on the server, so chart speed does not depend on how dense the telemetry is.
-- **Resilience:** the client reconnects automatically and refetches after a reconnect. While the hub is down, the client falls back to 15 s polling.
+The 74 unit and integration tests cover the clinical rules, the early-warning score, trend detection, escalation, data retention, real-time events, HTTP caching and report generation.
 
-| Method | Route | Purpose |
-|--------|-------|---------|
-| GET | `/astronauts/{id}/vitals/series` | Downsampled chart series |
-| GET | `/system/status` | Version, uptime, live clients, simulator |
-| WS | `/hubs/telemetry` | SignalR telemetry stream |
+## Roadmap
 
-## Smart monitoring
+- Authentication with role-based access (flight surgeon, commander, crew) and a full audit trail
+- Ingestion endpoint for real wearable sensors
+- Docker Compose and a CI pipeline
+- Wall-display mode enhancements, fleet heatmap and accessibility refinements
 
-- **Escalation engine:** an open critical alert with no acknowledgement within 2 min escalates to level 1. Warnings escalate after 15 min. Every further 5 min adds a level, up to 3. Each escalation sends `AlertEscalated` over SignalR, which shows a full-screen master alarm, plays an alarm tone and sends a desktop notification. Configure it under `Escalation`.
-- **Early Warning Score:** the NEWS2 score, adapted for our sensors (RR, SpO₂, systolic BP, HR, temperature; max 15). Every reading carries `earlyWarningScore` and `earlyWarningRisk`.
-- **Trend detection:** a least-squares fit over the last 60 min. It reports only *deterioration* (movement away from normal, with R² ≥ 0.5) and projects the time until a safe limit is crossed. Endpoints: `GET /assessments` (fleet) and `GET /astronauts/{id}/assessment`.
-- **Desktop notifications:** native browser notifications for critical alerts and escalations, switched on from the bell icon in the top bar.
-- The simulator also produces gradual 30–60 min episodes (developing fever, dehydration, respiratory decline), so trends can be demonstrated.
+## Disclaimer
 
-## Roadmap ideas
-- Real-time updates with SignalR (live vitals stream instead of 15 s polling)
-- Authentication and roles (flight surgeon, commander, crew) with JWT
-- Wearable/sensor ingestion endpoint and a simulator background service
-- Trend-based anomaly detection (for example a rising heart rate over 6 h), on top of fixed thresholds
-- Cumulative mission radiation budget per astronaut
-- PostgreSQL + Docker Compose, CI pipeline
+VITA is a hackathon prototype for demonstration purposes. Its reference ranges are loosely based on NASA-STD-3001, and its early-warning score is adapted from NEWS2 (Royal College of Physicians). **It is not a medical device and must not be used for clinical decisions.**
+
+<div align="center">
+<sub>Built for the 2026 NASA Space Apps Challenge · <i>The Next Frontier</i></sub>
+</div>

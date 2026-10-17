@@ -10,7 +10,9 @@ import { AlertList } from "@/components/alerts/alert-list";
 import { CrewAvatar } from "@/components/ui/avatar";
 import { HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
 import { RadialGauge, RangeBar } from "@/components/ui/data-viz";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
+import { reports } from "@/lib/reports";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { Button, Card, CardTitle, EmptyState, ErrorState, Segmented, Skeleton } from "@/components/ui/primitives";
 import {
@@ -128,6 +130,7 @@ function ProfileView({ astronaut: a }: { astronaut: AstronautDetail }) {
             </dl>
           </div>
           <div className="flex gap-2">
+            <ExportMenu options={[reports.astronautPdf(a.id, hours), reports.vitalsExcel(a.id, hours)]} />
             <Button variant="danger" onClick={() => setConfirmingDelete(true)} aria-label="Delete astronaut">
               <Trash2 className="size-4" aria-hidden />
             </Button>

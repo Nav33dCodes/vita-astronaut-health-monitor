@@ -10,6 +10,7 @@ import { MonitorTile } from "@/components/monitor/monitor-tile";
 import { EventFeed } from "@/components/realtime/event-feed";
 import { HEALTH_TEXT } from "@/components/ui/badges";
 import { AnimatedNumber, StatusRing } from "@/components/ui/data-viz";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
 import { Card, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui/primitives";
 import { useAlerts, useAstronauts, useDashboard, useThresholds } from "@/lib/api/queries";
@@ -17,6 +18,7 @@ import type { DashboardSummary, HealthStatus } from "@/lib/api/types";
 import { useEventRate } from "@/lib/realtime/hooks";
 import { useEventLog } from "@/lib/realtime/store";
 import { PAGE_SIZE } from "@/lib/prefetch";
+import { reports } from "@/lib/reports";
 import { usePagination } from "@/lib/use-pagination";
 
 /*
@@ -30,7 +32,12 @@ export default function OverviewPage() {
 
   return (
     <>
-      <PageHeader compact eyebrow="Mission control · live" title="Overview" />
+      <PageHeader
+        compact
+        eyebrow="Mission control · live"
+        title="Overview"
+        action={<ExportMenu options={[reports.fleetPdf(), reports.crewExcel()]} />}
+      />
       {dashboard.isPending ? (
         <OverviewSkeleton />
       ) : dashboard.isError ? (

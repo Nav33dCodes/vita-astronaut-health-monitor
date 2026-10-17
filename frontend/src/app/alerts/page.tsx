@@ -3,11 +3,13 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { AlertList } from "@/components/alerts/alert-list";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
 import { Card, EmptyState, ErrorState, PageHeader, Segmented, Skeleton } from "@/components/ui/primitives";
 import { useAlerts, useDashboard } from "@/lib/api/queries";
 import type { AlertSeverity, AlertStatus } from "@/lib/api/types";
 import { PAGE_SIZE } from "@/lib/prefetch";
+import { reports } from "@/lib/reports";
 
 const STATUS_OPTIONS: { value: AlertStatus | undefined; label: string }[] = [
   { value: "Open", label: "Open" },
@@ -37,12 +39,15 @@ export default function AlertsPage() {
         title="Health alerts"
         subtitle="Raised automatically when a crew member's vitals leave their safe range."
         action={
-          dashboard.data && (
-            <div className="flex gap-6 font-mono">
-              <Counter label="Open" value={dashboard.data.openAlerts} className="text-caution" />
-              <Counter label="Critical" value={dashboard.data.openCriticalAlerts} className="text-critical" />
-            </div>
-          )
+          <div className="flex items-end gap-6">
+            {dashboard.data && (
+              <div className="flex gap-6 font-mono">
+                <Counter label="Open" value={dashboard.data.openAlerts} className="text-caution" />
+                <Counter label="Critical" value={dashboard.data.openCriticalAlerts} className="text-critical" />
+              </div>
+            )}
+            <ExportMenu options={[reports.alertsExcel(status, severity)]} />
+          </div>
         }
       />
 

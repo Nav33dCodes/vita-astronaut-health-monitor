@@ -25,7 +25,9 @@ internal static class VitalEndpoints
             .ProducesValidationProblem().ProducesProblem(404);
 
         app.MapGet("vitals/thresholds", (IVitalService vitals) => TypedResults.Ok(vitals.GetThresholds()))
-            .WithTags("Vitals").WithName("GetVitalThresholds").WithSummary("Warning and critical ranges per metric");
+            .WithTags("Vitals").WithName("GetVitalThresholds").WithSummary("Warning and critical ranges per metric")
+            .CacheOutput(ApiServiceExtensions.ReferenceCache)
+            .WithBrowserCache(TimeSpan.FromHours(1));
 
         app.MapGet("telemetry/snapshot", Snapshot)
             .WithTags("Vitals").WithName("GetTelemetrySnapshot")

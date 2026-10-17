@@ -1,6 +1,7 @@
 using AstroHealth.Application.Abstractions;
 using AstroHealth.Application.Alerts;
 using AstroHealth.Application.Vitals;
+using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.SignalR;
 
 namespace AstroHealth.Api.Realtime;
@@ -44,27 +45,36 @@ public sealed class ConnectionTracker
     public void Decrement() => Interlocked.Decrement(ref _count);
 }
 
-/// <summary>Fans domain events out to every connected client via SignalR.</summary>
+/// <summary>
+/// Fans domain events out to every connected client via SignalR. Alert changes also evict the
+/// cached dashboard first, so clients refetching in response never read stale counts.
+/// </summary>
 internal sealed class SignalRTelemetryPublisher(
     IHubContext<TelemetryHub, ITelemetryClient> hub,
+    IOutputCacheStore outputCache,
     ILogger<SignalRTelemetryPublisher> logger) : ITelemetryPublisher
 {
     public Task ReadingRecordedAsync(ReadingRecordedEvent @event, CancellationToken ct = default) =>
         SafeSend(() => hub.Clients.All.ReadingRecorded(@event), nameof(ITelemetryClient.ReadingRecorded));
 
     public Task AlertRaisedAsync(AlertResponse alert, CancellationToken ct = default) =>
-        SafeSend(() => hub.Clients.All.AlertRaised(alert), nameof(ITelemetryClient.AlertRaised));
+        SafeSend(() => hub.Clients.All.AlertRaised(alert), nameof(ITelemetryClient.AlertRaised), evictDashboard: true);
 
     public Task AlertUpdatedAsync(AlertResponse alert, CancellationToken ct = default) =>
-        SafeSend(() => hub.Clients.All.AlertUpdated(alert), nameof(ITelemetryClient.AlertUpdated));
+        SafeSend(() => hub.Clients.All.AlertUpdated(alert), nameof(ITelemetryClient.AlertUpdated), evictDashboard: true);
 
     public Task AlertEscalatedAsync(AlertResponse alert, CancellationToken ct = default) =>
-        SafeSend(() => hub.Clients.All.AlertEscalated(alert), nameof(ITelemetryClient.AlertEscalated));
+        SafeSend(() => hub.Clients.All.AlertEscalated(alert), nameof(ITelemetryClient.AlertEscalated), evictDashboard: true);
 
-    private async Task SafeSend(Func<Task> send, string eventName)
+    private async Task SafeSend(Func<Task> send, string eventName, bool evictDashboard = false)
     {
         try
         {
+            if (evictDashboard)
+            {
+                await outputCache.EvictByTagAsync(ApiServiceExtensions.DashboardCache, CancellationToken.None);
+            }
+
             await send();
         }
         catch (Exception ex)

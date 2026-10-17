@@ -1,11 +1,12 @@
 "use client";
 
 import clsx from "clsx";
-import { BellOff, BellRing, Search, Siren, Volume2, VolumeX } from "lucide-react";
+import { BellOff, BellRing, Search, Siren, Volume2, VolumeX, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useDashboard, useMissions } from "@/lib/api/queries";
 import { disableDesktopAlerts, enableDesktopAlerts, showDesktopAlert, useDesktopAlerts } from "@/lib/notifications";
+import { useOnline } from "@/lib/online";
 import { useLinkStatus, type LinkState } from "@/lib/realtime/store";
 import { setSoundEnabled, useSoundEnabled } from "@/lib/sound";
 import { formatMet, formatUtcClock, useNow } from "@/lib/time";
@@ -66,6 +67,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
   const missions = useMissions();
   const dashboard = useDashboard();
   const soundOn = useSoundEnabled();
+  const online = useOnline();
 
   // The longest-running active mission drives the headline MET clock.
   const primary = missions.data
@@ -79,6 +81,12 @@ export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
 
   return (
     <div className="sticky top-0 z-10 border-b border-line bg-canvas/70 backdrop-blur-xl">
+      {!online && (
+        <div role="status" className="flex items-center justify-center gap-2 bg-caution/15 py-1 font-mono text-[10.5px] tracking-[0.14em] text-caution uppercase">
+          <WifiOff className="size-3.5" aria-hidden />
+          Offline · showing last cached data — updates resume when the connection returns
+        </div>
+      )}
       {/* Alarm strips, most severe wins: escalated (master alarm) > open critical (master caution). */}
       {escalatedCount > 0 ? (
         <Link

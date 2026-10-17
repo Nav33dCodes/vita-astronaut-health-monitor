@@ -16,6 +16,7 @@ import { prefetchRoute } from "@/lib/prefetch";
 import { useEventRate } from "@/lib/realtime/hooks";
 import { useLinkStatus } from "@/lib/realtime/store";
 import { CommandPalette } from "./command-palette";
+import { LoadingBar } from "./loading-bar";
 import { TopBar } from "./top-bar";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -41,6 +42,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-8 md:px-10">{children}</main>
       </div>
 
+      <LoadingBar />
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
       <MasterAlarm />
     </div>

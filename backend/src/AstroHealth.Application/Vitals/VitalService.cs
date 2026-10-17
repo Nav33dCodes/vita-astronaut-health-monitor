@@ -17,6 +17,8 @@ public interface IVitalService
     Task<Result<VitalStatsResponse>> GetStatsAsync(Guid astronautId, int windowHours, CancellationToken ct);
     Task<Result<VitalSeriesResponse>> GetSeriesAsync(Guid astronautId, int windowHours, int buckets, CancellationToken ct);
     Task<TelemetrySnapshotResponse> GetSnapshotAsync(int windowMinutes, int perAstronaut, Guid? missionId, CancellationToken ct);
+    /// <summary>Latest reading of every astronaut in a single query (keyed by astronaut).</summary>
+    Task<IReadOnlyDictionary<Guid, VitalReadingResponse>> GetLatestReadingsAsync(CancellationToken ct);
     IReadOnlyList<ThresholdResponse> GetThresholds();
 }
 
@@ -255,6 +257,17 @@ internal sealed class VitalService(
             .ToList();
 
         return new TelemetrySnapshotResponse(now, windowMinutes, crew);
+    }
+
+    public async Task<IReadOnlyDictionary<Guid, VitalReadingResponse>> GetLatestReadingsAsync(CancellationToken ct)
+    {
+        // One correlated subquery (a LATERAL join on PostgreSQL) instead of a round-trip per astronaut.
+        var latest = await db.Astronauts.AsNoTracking()
+            .Select(a => a.Readings.OrderByDescending(r => r.RecordedAtUtc).FirstOrDefault())
+            .Where(r => r != null)
+            .ToListAsync(ct);
+
+        return latest.ToDictionary(r => r!.AstronautId, r => VitalReadingResponse.From(r!));
     }
 
     public IReadOnlyList<ThresholdResponse> GetThresholds() =>

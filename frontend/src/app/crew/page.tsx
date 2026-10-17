@@ -26,7 +26,9 @@ import type { HealthStatus } from "@/lib/api/types";
 import { humanize, timeAgo } from "@/lib/format";
 import { useDebouncedValue } from "@/lib/hooks";
 import { PAGE_SIZE } from "@/lib/prefetch";
+import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
+import { reports } from "@/lib/reports";
 
 type View = "table" | "grid";
 
@@ -73,9 +75,12 @@ export default function CrewPage() {
         title="Crew"
         subtitle="Every astronaut under continuous health monitoring."
         action={
-          <Button onClick={() => setAdding(true)}>
-            <Plus className="size-4" aria-hidden /> Add astronaut
-          </Button>
+          <div className="flex gap-2">
+            <ExportMenu options={[reports.crewExcel(), reports.fleetPdf()]} />
+            <Button onClick={() => setAdding(true)}>
+              <Plus className="size-4" aria-hidden /> Add astronaut
+            </Button>
+          </div>
         }
       />
 

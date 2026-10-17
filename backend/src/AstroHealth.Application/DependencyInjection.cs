@@ -3,6 +3,7 @@ using AstroHealth.Application.Alerts;
 using AstroHealth.Application.Astronauts;
 using AstroHealth.Application.Dashboard;
 using AstroHealth.Application.Missions;
+using AstroHealth.Application.Reports;
 using AstroHealth.Application.Vitals;
 using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,6 +26,7 @@ public static class DependencyInjection
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IAlertEscalationService, AlertEscalationService>();
         services.AddScoped<IHealthAssessmentService, HealthAssessmentService>();
+        services.AddScoped<IReportService, ReportService>();
 
         return services;
     }

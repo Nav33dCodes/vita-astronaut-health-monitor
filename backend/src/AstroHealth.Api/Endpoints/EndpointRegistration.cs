@@ -10,13 +10,15 @@ internal static class EndpointRegistration
 
         v1.MapGet("dashboard/summary", async (IDashboardService dashboard, CancellationToken ct) =>
                 TypedResults.Ok(await dashboard.GetSummaryAsync(ct)))
-            .WithTags("Dashboard").WithName("GetDashboardSummary").WithSummary("Fleet-wide crew health overview");
+            .WithTags("Dashboard").WithName("GetDashboardSummary").WithSummary("Fleet-wide crew health overview")
+            .CacheOutput(ApiServiceExtensions.DashboardCache);
 
         v1.MapMissionEndpoints()
             .MapAstronautEndpoints()
             .MapVitalEndpoints()
             .MapAlertEndpoints()
             .MapAssessmentEndpoints()
+            .MapReportEndpoints()
             .MapSystemEndpoints();
 
         return app;

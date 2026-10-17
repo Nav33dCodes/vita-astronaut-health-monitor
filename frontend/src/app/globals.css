@@ -33,6 +33,8 @@
   --animate-blink: blink 1.6s ease-in-out infinite;
   --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-page-in: page-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-loading-in: loading-in 0.2s ease-out 0.15s both;
+  --animate-indeterminate: indeterminate 1.1s ease-in-out infinite;
 
   @keyframes pulse-ring {
     0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-critical) 45%, transparent); }
@@ -53,6 +55,14 @@
   @keyframes tick {
     from { opacity: 0.35; filter: brightness(1.6); }
     to { opacity: 1; filter: none; }
+  }
+  @keyframes loading-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes indeterminate {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(300%); }
   }
   @keyframes page-in {
     from { opacity: 0; transform: translateY(4px); }
@@ -197,6 +207,40 @@ body::before {
     border-right: 1px solid;
     border-bottom: 1px solid;
     border-bottom-right-radius: 16px;
+  }
+
+  /* Notifications: one accent per toast type drives the rail, icon chip and action button. */
+  [data-sonner-toast] {
+    --toast-accent: var(--color-accent);
+  }
+  [data-sonner-toast][data-type="success"] {
+    --toast-accent: var(--color-nominal);
+  }
+  [data-sonner-toast][data-type="error"] {
+    --toast-accent: var(--color-critical);
+  }
+  [data-sonner-toast][data-type="warning"] {
+    --toast-accent: var(--color-caution);
+  }
+  /* Report jobs: rail follows the job phase. */
+  [data-sonner-toast].report-toast-ready {
+    --toast-accent: var(--color-nominal);
+  }
+  [data-sonner-toast].report-toast-failed {
+    --toast-accent: var(--color-critical);
+  }
+  [data-sonner-toast].report-toast-cancelled {
+    --toast-accent: var(--color-faint);
+  }
+  .vita-toast::before {
+    content: "";
+    position: absolute;
+    inset-block: 10px;
+    left: 0;
+    width: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--toast-accent);
+    box-shadow: 0 0 12px var(--toast-accent);
   }
 
   .glow-critical {

@@ -14,11 +14,14 @@ internal static class AssessmentEndpoints
         app.MapGet("assessments", Fleet)
             .WithTags("Early warning").WithName("GetFleetAssessments")
             .WithSummary("Early-warning score and trend analysis for every astronaut, most at-risk first")
-            .ProducesValidationProblem();
+            .ProducesValidationProblem()
+            .CacheOutput(ApiServiceExtensions.AssessmentsCache);
 
         app.MapGet("early-warning/scoring", () => TypedResults.Ok(EarlyWarningScoringResponse.Current))
             .WithTags("Early warning").WithName("GetEarlyWarningScoring")
-            .WithSummary("Scoring bands and risk thresholds of the early warning score");
+            .WithSummary("Scoring bands and risk thresholds of the early warning score")
+            .CacheOutput(ApiServiceExtensions.ReferenceCache)
+            .WithBrowserCache(TimeSpan.FromHours(1));
 
         app.MapGet("astronauts/{astronautId:guid}/assessment", Single)
             .WithTags("Early warning").WithName("GetAstronautAssessment")

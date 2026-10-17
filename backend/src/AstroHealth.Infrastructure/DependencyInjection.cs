@@ -1,7 +1,9 @@
 using AstroHealth.Application.Abstractions;
 using AstroHealth.Application.Alerts;
 using AstroHealth.Infrastructure.Maintenance;
+using AstroHealth.Application.Reports;
 using AstroHealth.Infrastructure.Persistence;
+using AstroHealth.Infrastructure.Reports;
 using AstroHealth.Infrastructure.Simulation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -47,6 +49,7 @@ public static class DependencyInjection
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddScoped<DataSeeder>();
+        services.AddSingleton<IReportRenderer, ReportRenderer>();
 
         services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database", tags: ["ready"]);
 

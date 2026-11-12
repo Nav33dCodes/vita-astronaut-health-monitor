@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useTelemetrySnapshot } from "@/lib/api/queries";
 import type { VitalReading } from "@/lib/api/types";
 import { useNow } from "@/lib/time";
-import { useEventLog, useLiveReadings } from "./store";
+import { useAllLiveReadings, useEventLog, useLiveReadings } from "./store";
 
 const BUFFER = 60;
 
@@ -23,6 +23,45 @@ export function useLiveVitals(astronautId: string): { readings: VitalReading[]; 
   }, [history, live]);
 
   return { readings, isLoading: snapshot.isPending };
+}
+
+const mergeReadings = (history: VitalReading[] | undefined, live: VitalReading[] | undefined) => {
+  const seen = new Set<string>();
+  return [...(history ?? []), ...(live ?? [])]
+    .filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)))
+    .sort((a, b) => a.recordedAtUtc.localeCompare(b.recordedAtUtc))
+    .slice(-BUFFER);
+};
+
+/** Live buffers for the whole fleet in one subscription: snapshot history + SignalR pushes. */
+export function useFleetReadings(): { byAstronaut: Map<string, VitalReading[]>; isLoading: boolean } {
+  const snapshot = useTelemetrySnapshot();
+  const live = useAllLiveReadings();
+
+  const byAstronaut = useMemo(() => {
+    const ids = new Set([...(snapshot.data?.keys() ?? []), ...Object.keys(live)]);
+    return new Map([...ids].map((id) => [id, mergeReadings(snapshot.data?.get(id), live[id])]));
+  }, [snapshot.data, live]);
+
+  return { byAstronaut, isLoading: snapshot.isPending };
+}
+
+/** Packets per bucket over a trailing window, oldest first: the data behind throughput sparklines. */
+export function useEventRateSeries(buckets = 20, bucketSeconds = 30): number[] {
+  const events = useEventLog();
+  const now = useNow(5000);
+  return useMemo(() => {
+    const counts = Array<number>(buckets).fill(0);
+    if (!now) return counts;
+    const end = now.getTime();
+    for (const e of events) {
+      if (e.kind !== "reading") continue;
+      const index = buckets - 1 - Math.floor((end - e.at) / (bucketSeconds * 1000));
+      if (index < 0) break; // newest first: everything after is older
+      if (index < buckets) counts[index]++;
+    }
+    return counts;
+  }, [events, now, buckets, bucketSeconds]);
 }
 
 export type SignalQuality = "live" | "stale" | "lost";

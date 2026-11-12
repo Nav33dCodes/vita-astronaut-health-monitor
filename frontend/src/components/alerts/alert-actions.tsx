@@ -18,7 +18,7 @@ export function AlertActions({ alert }: { alert: Alert }) {
   const onError = (error: Error) => toast.error("Action failed", { description: error.message });
 
   return (
-    <div className="flex items-center gap-1.5">
+    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
       {alert.status === "Open" && (
         <Button
           size="sm"
@@ -31,7 +31,7 @@ export function AlertActions({ alert }: { alert: Alert }) {
             })
           }
         >
-          Ack
+          Acknowledge
         </Button>
       )}
       <Button size="sm" variant="ghost" onClick={() => setResolving(true)}>

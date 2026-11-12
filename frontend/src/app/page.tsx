@@ -1,44 +1,50 @@
 "use client";
 
 import clsx from "clsx";
-import { Activity, ArrowUpRight, BellRing, HeartPulse, Rocket, ShieldAlert, Users } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { AlertList } from "@/components/alerts/alert-list";
-import { EarlyWarningBoard } from "@/components/monitor/early-warning";
-import { MonitorTile } from "@/components/monitor/monitor-tile";
+import { CrewQuickView } from "@/components/crew/crew-quick-view";
+import { TrendWatch } from "@/components/monitor/early-warning";
+import { CrewVitalsTable } from "@/components/overview/crew-vitals-table";
+import { FleetTrend } from "@/components/overview/fleet-trend";
 import { EventFeed } from "@/components/realtime/event-feed";
-import { HEALTH_TEXT } from "@/components/ui/badges";
-import { AnimatedNumber, StatusRing } from "@/components/ui/data-viz";
+import { HEALTH_COLOR, HEALTH_LABEL } from "@/components/ui/badges";
+import { AnimatedNumber, Sparkline, StackedBar } from "@/components/ui/data-viz";
+import { RISK_TEXT } from "@/components/ui/ews";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
-import { Card, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui/primitives";
-import { useAlerts, useAstronauts, useDashboard, useThresholds } from "@/lib/api/queries";
+import { Card, CardTitle, Count, EmptyState, ErrorState, PageHeader, Segmented, Skeleton } from "@/components/ui/primitives";
+import { useAlerts, useAstronauts, useDashboard, useFleetAssessments, useMissions, useThresholds } from "@/lib/api/queries";
 import type { DashboardSummary, HealthStatus } from "@/lib/api/types";
-import { useEventRate } from "@/lib/realtime/hooks";
-import { useEventLog } from "@/lib/realtime/store";
+import { useHydrated } from "@/lib/hooks";
 import { PAGE_SIZE } from "@/lib/prefetch";
+import { useEventRate, useEventRateSeries, useFleetReadings } from "@/lib/realtime/hooks";
+import { useEventLog } from "@/lib/realtime/store";
 import { reports } from "@/lib/reports";
-import { usePagination } from "@/lib/use-pagination";
-
-/*
- * Single-screen layout: on large displays every card has a fixed height and pages its own
- * content, so the whole overview fits without scrolling. Small screens stack naturally.
- */
-const ROW_HEIGHT = "lg:h-[270px]";
 
 export default function OverviewPage() {
   const dashboard = useDashboard();
+  const missions = useMissions();
+  // The top bar shares these queries and can finish before this page hydrates: render the
+  // server's (loading) markup first, then the data.
+  const hydrated = useHydrated();
+  const active = missions.data?.filter((m) => m.status === "Active") ?? [];
 
   return (
     <>
       <PageHeader
         compact
-        eyebrow="Mission control · live"
         title="Overview"
+        subtitle={
+          hydrated && dashboard.data
+            ? `${active.length ? active.map((m) => m.name).join(", ") : "No mission in flight"} · ${dashboard.data.totalCrew} crew monitored in real time`
+            : "Crew health across every active mission."
+        }
         action={<ExportMenu options={[reports.fleetPdf(), reports.crewExcel()]} />}
       />
-      {dashboard.isPending ? (
+      {dashboard.isPending || !hydrated ? (
         <OverviewSkeleton />
       ) : dashboard.isError ? (
         <ErrorState error={dashboard.error} onRetry={() => dashboard.refetch()} />
@@ -50,83 +56,121 @@ export default function OverviewPage() {
 }
 
 function Overview({ summary }: { summary: DashboardSummary }) {
-  const rate = useEventRate();
-  const { crewHealth } = summary;
+  const [selected, setSelected] = useState<string | null>(null);
+  const [attentionOnly, setAttentionOnly] = useState(false);
+  const crew = useAstronauts({ pageSize: 100 });
+  const thresholds = useThresholds();
+  const { byAstronaut } = useFleetReadings();
+  const attention = summary.crewHealth.critical + summary.crewHealth.caution;
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <Kpi icon={<Users />} label="Crew monitored" value={summary.totalCrew} />
-        <Kpi icon={<ShieldAlert />} label="Critical crew" value={crewHealth.critical} tone={crewHealth.critical > 0 ? "critical" : undefined} href="/monitor" />
-        <Kpi icon={<HeartPulse />} label="Caution crew" value={crewHealth.caution} tone={crewHealth.caution > 0 ? "caution" : undefined} href="/monitor" />
-        <Kpi
-          icon={<BellRing />}
-          label="Open alerts"
-          value={summary.openAlerts}
-          detail={summary.escalatedAlerts > 0 ? `${summary.escalatedAlerts} escalated` : `${summary.openCriticalAlerts} critical`}
-          tone={summary.openCriticalAlerts > 0 || summary.escalatedAlerts > 0 ? "critical" : summary.openAlerts > 0 ? "caution" : undefined}
-          href="/alerts"
-        />
-        <Kpi icon={<Rocket />} label="Missions in flight" value={summary.activeMissions} href="/missions" />
-        <Kpi icon={<Activity />} label="Telemetry / min" value={rate} detail="SignalR packets" href="/events" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <CrewHealthKpi summary={summary} />
+        <AlertsKpi summary={summary} />
+        <EwsKpi />
+        <TelemetryKpi />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <FleetStatus summary={summary} />
-        <PriorityAlerts />
-        <LiveFeed />
-      </div>
+      <Card className="overflow-hidden p-0">
+        <CardTitle
+          className="mb-0 px-5 pt-4 pb-3"
+          description="Live vitals for every crew member. Values outside the safe range are highlighted."
+          action={
+            <Segmented
+              size="sm"
+              label="Crew filter"
+              value={attentionOnly}
+              onChange={setAttentionOnly}
+              options={[
+                { value: false, label: "All", count: summary.totalCrew },
+                { value: true, label: "Needs attention", count: attention },
+              ]}
+            />
+          }
+        >
+          Crew vitals
+        </CardTitle>
+        {crew.isPending || thresholds.isPending ? (
+          <div className="space-y-2 px-5 pb-5">
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} className="h-10" />
+            ))}
+          </div>
+        ) : crew.isError ? (
+          <div className="p-5">
+            <ErrorState error={crew.error} onRetry={() => crew.refetch()} />
+          </div>
+        ) : (
+          <CrewVitalsTable
+            crew={crew.data.items}
+            thresholds={thresholds.data ?? []}
+            readings={byAstronaut}
+            onSelect={setSelected}
+            attentionOnly={attentionOnly}
+          />
+        )}
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-12">
-        <AttentionBoard />
-        <Card className="flex flex-col lg:col-span-5">
-          <CardTitle action={<CardLink href="/protocols">How it works</CardLink>}>Early warning</CardTitle>
-          <EarlyWarningBoard pageSize={5} />
+        <ActionQueue onSelectAstronaut={setSelected} />
+        <Card className="flex flex-col lg:col-span-7">
+          <CardTitle description="Crew average and spread over the last minutes, against the safe range.">Fleet trend</CardTitle>
+          <FleetTrend readings={byAstronaut} thresholds={thresholds.data ?? []} />
         </Card>
       </div>
+
+      <div className="grid gap-4 lg:grid-cols-12">
+        <Card className="lg:col-span-5">
+          <CardTitle description="Vitals drifting toward a limit, soonest first." action={<CardLink href="/protocols">How it works</CardLink>}>
+            Trend watch
+          </CardTitle>
+          <TrendWatch onSelect={setSelected} />
+        </Card>
+        <ActivityCard onSelectAstronaut={setSelected} />
+      </div>
+
+      <CrewQuickView astronautId={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
 
 function CardLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="flex items-center gap-1 text-xs whitespace-nowrap text-accent hover:underline">
-      {children} <ArrowUpRight className="size-3" />
+    <Link
+      href={href}
+      className="flex items-center gap-0.5 rounded-md px-1.5 py-1 text-[12.5px] font-medium whitespace-nowrap text-muted transition-colors hover:bg-overlay/[0.05] hover:text-ink"
+    >
+      {children} <ArrowUpRight className="size-3.5" aria-hidden />
     </Link>
   );
 }
 
-const KPI_TONE = { critical: "text-critical", caution: "text-caution" } as const;
+// ---- KPIs ---------------------------------------------------------------------
 
 function Kpi({
-  icon,
   label,
-  value,
-  detail,
-  tone,
   href,
+  children,
+  footer,
 }: {
-  icon: ReactNode;
   label: string;
-  value: number;
-  detail?: string;
-  tone?: keyof typeof KPI_TONE;
   href?: string;
+  children: ReactNode;
+  footer?: ReactNode;
 }) {
   const body = (
-    <Card tone={tone} className="h-full px-4 py-3 transition hover:border-accent/25">
-      <div className="flex items-center justify-between text-muted [&_svg]:size-3.5">
-        <p className="hud-label !text-[9px]">{label}</p>
-        {icon}
+    <Card className={clsx("flex h-full flex-col gap-2 p-4 sm:p-5", href && "transition-colors hover:border-line-strong")}>
+      <div className="flex items-center justify-between">
+        <p className="text-[12.5px] font-medium text-muted">{label}</p>
+        {href && <ArrowUpRight className="size-3.5 text-faint opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />}
       </div>
-      <p className={clsx("mt-1 font-mono text-2xl font-semibold tracking-tight", tone ? KPI_TONE[tone] : "text-ink")}>
-        <AnimatedNumber value={value} />
-      </p>
-      <p className="truncate text-[10.5px] text-muted">{detail ?? " "}</p>
+      <div className="flex-1">{children}</div>
+      {footer && <div className="text-[12px] text-muted">{footer}</div>}
     </Card>
   );
   return href ? (
-    <Link href={href} className="block">
+    <Link href={href} className="group block rounded-[var(--radius-card)]">
       {body}
     </Link>
   ) : (
@@ -134,119 +178,184 @@ function Kpi({
   );
 }
 
-function FleetStatus({ summary }: { summary: DashboardSummary }) {
-  const statuses: HealthStatus[] = ["Critical", "Caution", "Nominal", "Unknown"];
-  const count = (s: HealthStatus) => summary.crewHealth[s.toLowerCase() as keyof DashboardSummary["crewHealth"]];
-
+function BigNumber({ value, decimals = 0, suffix, className }: { value: number; decimals?: number; suffix?: ReactNode; className?: string }) {
   return (
-    <Card hud className={clsx("flex flex-col lg:col-span-3", ROW_HEIGHT)}>
-      <CardTitle>Fleet status</CardTitle>
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        <StatusRing size={130} segments={statuses.map((status) => ({ status, value: count(status) }))}>
-          <div>
-            <p className="font-mono text-3xl font-semibold text-ink">
-              <AnimatedNumber value={summary.totalCrew} />
-            </p>
-            <p className="hud-label !text-[8.5px]">Crew</p>
-          </div>
-        </StatusRing>
-        <dl className="grid w-full grid-cols-4 gap-1.5 text-center">
-          {statuses.map((status) => (
-            <div key={status} className="rounded-lg border border-line bg-overlay/[0.02] py-1">
-              <dd className={clsx("font-mono text-base font-semibold", HEALTH_TEXT[status])}>{count(status)}</dd>
-              <dt className="hud-label !text-[8px] !tracking-[0.08em]">{status}</dt>
-            </div>
-          ))}
-        </dl>
-      </div>
-    </Card>
+    <p className={clsx("text-[28px] leading-none font-semibold tracking-[-0.02em] text-ink sm:text-[32px]", className)}>
+      <AnimatedNumber value={value} decimals={decimals} />
+      {suffix && <span className="ml-1.5 text-[13px] font-medium tracking-normal text-muted">{suffix}</span>}
+    </p>
   );
 }
 
+const HEALTH_ORDER: HealthStatus[] = ["Critical", "Caution", "Nominal", "Unknown"];
 
-function PriorityAlerts() {
+function CrewHealthKpi({ summary }: { summary: DashboardSummary }) {
+  const count = (s: HealthStatus) => summary.crewHealth[s.toLowerCase() as keyof DashboardSummary["crewHealth"]];
+  const nominal = count("Nominal");
+  return (
+    <Kpi
+      label="Crew health"
+      href="/monitor"
+      footer={
+        <span className="flex flex-wrap gap-x-3 gap-y-1">
+          {HEALTH_ORDER.filter((s) => count(s) > 0).map((s) => (
+            <span key={s} className="flex items-center gap-1.5">
+              <span className="size-1.5 rounded-full" style={{ background: HEALTH_COLOR[s] }} aria-hidden />
+              <span className="tnum text-ink">{count(s)}</span> {HEALTH_LABEL[s].toLowerCase()}
+            </span>
+          ))}
+        </span>
+      }
+    >
+      <BigNumber value={nominal} suffix={`of ${summary.totalCrew} nominal`} />
+      <div className="mt-3">
+        <StackedBar segments={HEALTH_ORDER.map((status) => ({ status, value: count(status) }))} height={6} />
+      </div>
+    </Kpi>
+  );
+}
+
+function AlertsKpi({ summary }: { summary: DashboardSummary }) {
+  return (
+    <Kpi
+      label="Open alerts"
+      href="/alerts"
+      footer={
+        <span className="flex flex-wrap gap-x-3">
+          <span>
+            <span className={clsx("tnum font-medium", summary.openCriticalAlerts > 0 ? "text-critical" : "text-ink")}>
+              {summary.openCriticalAlerts}
+            </span>{" "}
+            critical
+          </span>
+          <span>
+            <span className={clsx("tnum font-medium", summary.escalatedAlerts > 0 ? "text-critical" : "text-ink")}>
+              {summary.escalatedAlerts}
+            </span>{" "}
+            escalated
+          </span>
+        </span>
+      }
+    >
+      <BigNumber
+        value={summary.openAlerts}
+        className={summary.openCriticalAlerts > 0 ? "!text-critical" : summary.openAlerts > 0 ? "!text-caution" : undefined}
+        suffix={summary.openAlerts === 0 ? "all clear" : undefined}
+      />
+    </Kpi>
+  );
+}
+
+function EwsKpi() {
+  const fleet = useFleetAssessments();
+  const scored = (fleet.data ?? []).filter((a) => a.score !== null);
+  const average = scored.length ? scored.reduce((s, a) => s + (a.score ?? 0), 0) / scored.length : 0;
+  const highest = [...scored].sort((a, b) => (b.score ?? 0) - (a.score ?? 0))[0];
+
+  return (
+    <Kpi
+      label="Avg. early warning score"
+      href="/protocols"
+      footer={
+        highest ? (
+          <span className="block truncate">
+            Highest: <span className="font-medium text-ink">{highest.astronautName}</span>{" "}
+            <span className={clsx("tnum font-semibold", highest.risk && RISK_TEXT[highest.risk])}>{highest.score}</span>
+          </span>
+        ) : (
+          "Awaiting telemetry"
+        )
+      }
+    >
+      {fleet.isPending ? <Skeleton className="h-8 w-20" /> : <BigNumber value={average} decimals={1} suffix="/ 15" />}
+    </Kpi>
+  );
+}
+
+function TelemetryKpi() {
+  const rate = useEventRate();
+  const series = useEventRateSeries(20, 30);
+  return (
+    <Kpi label="Telemetry" href="/events" footer="Readings per minute over SignalR">
+      <div className="flex items-end justify-between gap-3">
+        <BigNumber value={rate} suffix="/min" />
+        <div className="w-24 pb-1 sm:w-28">
+          <Sparkline values={series} color="var(--color-accent)" height={30} />
+        </div>
+      </div>
+    </Kpi>
+  );
+}
+
+// ---- Cards ----------------------------------------------------------------------
+
+function ActionQueue({ onSelectAstronaut }: { onSelectAstronaut: (id: string) => void }) {
   const [page, setPage] = useState(1);
   // Server-side paging; the API already orders critical and escalated alerts first.
   const alerts = useAlerts({ status: "Open", page, pageSize: PAGE_SIZE.overviewAlerts });
 
   return (
-    <Card className={clsx("flex flex-col lg:col-span-6", ROW_HEIGHT)}>
+    <Card className="flex flex-col lg:col-span-5">
       <CardTitle
+        description="Open alerts, most urgent first. Acknowledge right here."
         action={
-          <div className="flex items-center gap-3">
+          <>
             {alerts.data && (
-              <Pager
-                variant="compact"
-                page={alerts.data.page}
-                totalPages={alerts.data.totalPages}
-                onPageChange={setPage}
-                busy={alerts.isPlaceholderData}
-              />
+              <Pager variant="compact" page={alerts.data.page} totalPages={alerts.data.totalPages} onPageChange={setPage} busy={alerts.isPlaceholderData} />
             )}
-            <CardLink href="/alerts">Console</CardLink>
-          </div>
+            <CardLink href="/alerts">All</CardLink>
+          </>
         }
       >
-        Priority alerts {alerts.data ? <span className="text-faint">· {alerts.data.totalCount}</span> : null}
+        Action queue {alerts.data && alerts.data.totalCount > 0 && <Count>{alerts.data.totalCount}</Count>}
       </CardTitle>
-      <div className={clsx("min-h-0 flex-1 transition-opacity", alerts.isPlaceholderData && "opacity-60")}>
+      <div className={clsx("-my-3 min-h-0 flex-1 transition-opacity", alerts.isPlaceholderData && "opacity-60")}>
         {alerts.isPending ? (
-          <Skeleton className="h-full min-h-40" />
+          <div className="space-y-2 py-3">
+            {Array.from({ length: 4 }, (_, i) => (
+              <Skeleton key={i} className="h-12" />
+            ))}
+          </div>
         ) : alerts.data?.items.length ? (
-          <AlertList alerts={alerts.data.items} compact dense />
+          <AlertList alerts={alerts.data.items} compact onSelectAstronaut={onSelectAstronaut} />
         ) : (
-          <EmptyState title="All systems nominal">No open health alerts.</EmptyState>
+          <EmptyState title="Nothing needs action">No open health alerts.</EmptyState>
         )}
       </div>
     </Card>
   );
 }
 
-function LiveFeed() {
+function ActivityCard({ onSelectAstronaut }: { onSelectAstronaut: (id: string) => void }) {
   const events = useEventLog();
-  return (
-    <Card className={clsx("flex flex-col overflow-hidden lg:col-span-3", ROW_HEIGHT)}>
-      <CardTitle action={<CardLink href="/events">Log</CardLink>}>Live feed</CardTitle>
-      <div className="min-h-0 flex-1 overflow-hidden">
-        <EventFeed events={events} limit={6} />
-      </div>
-    </Card>
-  );
-}
-
-const TILES_PER_PAGE = 2;
-
-function AttentionBoard() {
-  const crew = useAstronauts({ pageSize: 100 });
-  const thresholds = useThresholds();
-  const attention = (crew.data?.items ?? [])
-    .filter((a) => a.healthStatus === "Critical" || a.healthStatus === "Caution")
-    .sort((a, b) => (a.healthStatus === b.healthStatus ? 0 : a.healthStatus === "Critical" ? -1 : 1));
-  const { page, setPage, totalPages, pageItems } = usePagination(attention, TILES_PER_PAGE);
+  const [kind, setKind] = useState<"all" | "alerts">("all");
+  const filtered = useMemo(() => (kind === "all" ? events : events.filter((e) => e.kind !== "reading")), [events, kind]);
 
   return (
-    <Card className="flex flex-col lg:col-span-7">
+    <Card className="flex flex-col overflow-hidden lg:col-span-7">
       <CardTitle
+        description="Everything arriving over the real-time uplink."
         action={
-          <div className="flex items-center gap-3">
-            <Pager variant="compact" page={page} totalPages={totalPages} onPageChange={setPage} />
-            <CardLink href="/monitor">Live monitor</CardLink>
-          </div>
+          <>
+            <Segmented
+              size="sm"
+              label="Activity filter"
+              value={kind}
+              onChange={setKind}
+              options={[
+                { value: "all", label: "All" },
+                { value: "alerts", label: "Alerts" },
+              ]}
+            />
+            <CardLink href="/events">Log</CardLink>
+          </>
         }
       >
-        Requires attention {attention.length > 0 && <span className="text-faint">· {attention.length}</span>}
+        Activity
       </CardTitle>
-      {crew.isPending ? (
-        <Skeleton className="h-56" />
-      ) : attention.length === 0 ? (
-        <EmptyState title="Every crew member is within safe limits">The live monitor shows all streams.</EmptyState>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2">
-          {pageItems.map((a) => (
-            <MonitorTile key={a.id} astronaut={a} thresholds={thresholds.data ?? []} />
-          ))}
-        </div>
-      )}
+      <div className="min-h-0 flex-1">
+        <EventFeed events={filtered} limit={7} onSelectAstronaut={onSelectAstronaut} />
+      </div>
     </Card>
   );
 }
@@ -254,19 +363,15 @@ function AttentionBoard() {
 function OverviewSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="h-[84px]" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-[132px] rounded-[var(--radius-card)]" />
         ))}
       </div>
+      <Skeleton className="h-[420px] rounded-[var(--radius-card)]" />
       <div className="grid gap-4 lg:grid-cols-12">
-        <Skeleton className="h-[270px] lg:col-span-3" />
-        <Skeleton className="h-[270px] lg:col-span-6" />
-        <Skeleton className="h-[270px] lg:col-span-3" />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Skeleton className="h-[300px] lg:col-span-7" />
-        <Skeleton className="h-[300px] lg:col-span-5" />
+        <Skeleton className="h-[320px] rounded-[var(--radius-card)] lg:col-span-5" />
+        <Skeleton className="h-[320px] rounded-[var(--radius-card)] lg:col-span-7" />
       </div>
     </div>
   );

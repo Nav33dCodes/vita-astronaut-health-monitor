@@ -37,22 +37,23 @@ export default function SystemStatusPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Ground segment"
+        eyebrow="System"
         title="System status"
         subtitle="Health of the API, the real-time uplink and the telemetry source."
         action={
           <span
             className={clsx(
-              "rounded-full border px-4 py-1.5 font-mono text-xs tracking-widest uppercase",
-              allNominal ? "border-nominal/30 text-nominal" : "border-caution/40 text-caution",
+              "inline-flex h-8 items-center gap-2 rounded-lg px-3 text-[13px] font-medium ring-1 ring-inset",
+              allNominal ? "bg-nominal/[0.08] text-nominal ring-nominal/20" : "bg-caution/[0.08] text-caution ring-caution/20",
             )}
           >
-            {allNominal ? "All systems nominal" : "Degraded"}
+            <span aria-hidden className="size-1.5 rounded-full bg-current" />
+            {allNominal ? "All systems operational" : "Degraded performance"}
           </span>
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <Subsystem icon={<Radio />} title="Real-time uplink" state={link.state} tone={LINK_TONE[link.state]}>
           <Row label="Protocol" value="SignalR" />
           <Row label="Transport" value={link.transport ?? "—"} />
@@ -101,7 +102,7 @@ export default function SystemStatusPage() {
       </div>
 
       <Card className="mt-4">
-        <CardTitle>Uplink throughput · last 5 minutes</CardTitle>
+        <CardTitle description="Messages per 10 seconds over the last 5 minutes.">Uplink throughput</CardTitle>
         <ThroughputChart />
       </Card>
     </>
@@ -122,27 +123,27 @@ function Subsystem({
   children: ReactNode;
 }) {
   return (
-    <Card hud className="p-5">
+    <Card className="p-5">
       <div className="flex items-start justify-between">
-        <span className="grid size-10 place-items-center rounded-xl border border-line bg-overlay/[0.03] text-accent [&_svg]:size-5">
+        <span className="grid size-9 place-items-center rounded-lg bg-panel-raised text-muted ring-1 ring-line ring-inset [&_svg]:size-[18px]">
           {icon}
         </span>
-        <span className={clsx("flex items-center gap-1.5 font-mono text-[10.5px] uppercase", tone)}>
-          <span aria-hidden className="size-1.5 animate-blink rounded-full bg-current shadow-[0_0_8px_currentColor]" />
+        <span className={clsx("flex items-center gap-1.5 text-[12.5px] font-medium capitalize", tone)}>
+          <span aria-hidden className="size-1.5 rounded-full bg-current" />
           {state}
         </span>
       </div>
-      <h2 className="mt-4 font-semibold text-ink">{title}</h2>
-      <dl className="mt-3 space-y-1.5">{children}</dl>
+      <h2 className="mt-4 text-[14px] font-semibold text-ink">{title}</h2>
+      <dl className="mt-3 space-y-2">{children}</dl>
     </Card>
   );
 }
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 text-xs">
+    <div className="flex items-baseline justify-between gap-3 text-[13px]">
       <dt className="text-muted">{label}</dt>
-      <dd className="truncate font-mono text-ink">{value}</dd>
+      <dd className="tnum truncate text-ink">{value}</dd>
     </div>
   );
 }
@@ -170,25 +171,25 @@ function ThroughputChart() {
       <div className="flex h-40 items-end gap-1" role="img" aria-label="Events per 10 seconds over the last five minutes">
         {counts.map((c, i) => (
           <div key={i} className="flex h-full flex-1 flex-col justify-end" title={`${c.readings} readings, ${c.alerts} alerts`}>
-            {c.alerts > 0 && <div className="rounded-t-sm bg-critical" style={{ height: `${(c.alerts / peak) * 100}%` }} />}
+            {c.alerts > 0 && <div className="rounded-t-[3px] bg-critical" style={{ height: `${(c.alerts / peak) * 100}%` }} />}
             <div
-              className={clsx("bg-accent/70", c.alerts === 0 && "rounded-t-sm")}
+              className={clsx("bg-accent/80", c.alerts === 0 && "rounded-t-[3px]")}
               style={{ height: `${(c.readings / peak) * 100}%`, minHeight: c.readings ? 2 : 0 }}
             />
           </div>
         ))}
       </div>
-      <div className="mt-2 flex justify-between font-mono text-[10px] text-faint">
-        <span>−5 min</span>
+      <div className="mt-2 flex justify-between text-[12px] text-faint">
+        <span>5 min ago</span>
         <span className="flex gap-4">
           <span className="flex items-center gap-1">
-            <span className="size-2 rounded-sm bg-accent/70" /> telemetry
+            <span className="size-2 rounded-sm bg-accent/80" /> Telemetry
           </span>
           <span className="flex items-center gap-1">
-            <span className="size-2 rounded-sm bg-critical" /> alerts
+            <span className="size-2 rounded-sm bg-critical" /> Alerts
           </span>
         </span>
-        <span>now</span>
+        <span>Now</span>
       </div>
     </div>
   );

@@ -1,163 +1,182 @@
 "use client";
 
 import clsx from "clsx";
-import { BellOff, BellRing, Search, Siren, Volume2, VolumeX, WifiOff } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { BellRing, ChevronRight, Menu, Search, Siren, WifiOff } from "lucide-react";
 import Link from "next/link";
-import { toast } from "sonner";
-import { useDashboard, useMissions } from "@/lib/api/queries";
-import { disableDesktopAlerts, enableDesktopAlerts, showDesktopAlert, useDesktopAlerts } from "@/lib/notifications";
+import { usePathname } from "next/navigation";
+import { Suspense } from "react";
+import { IconButton, Kbd } from "@/components/ui/primitives";
+import { queries, useDashboard } from "@/lib/api/queries";
+import { useHydrated } from "@/lib/hooks";
+import { navItemFor } from "@/lib/navigation";
 import { useOnline } from "@/lib/online";
-import { useLinkStatus, type LinkState } from "@/lib/realtime/store";
-import { setSoundEnabled, useSoundEnabled } from "@/lib/sound";
-import { formatMet, formatUtcClock, useNow } from "@/lib/time";
-import { ThemeToggle } from "./theme-toggle";
+import { useLinkStatus } from "@/lib/realtime/store";
+import { formatUtcClock, useNow } from "@/lib/time";
+import { SettingsMenu } from "./settings-menu";
+import { Wordmark } from "./wordmark";
 
-const LINK_PILL: Record<LinkState, { label: string; className: string }> = {
-  connected: { label: "Live", className: "border-nominal/30 text-nominal" },
-  connecting: { label: "Connecting", className: "border-caution/35 text-caution" },
-  reconnecting: { label: "Reconnecting", className: "border-caution/35 text-caution" },
-  disconnected: { label: "Offline · polling", className: "border-critical/40 text-critical" },
-};
-
-/** Opt-in for native desktop notifications (critical alerts and escalations). */
-function DesktopAlertsToggle() {
-  const state = useDesktopAlerts();
-  if (state === "unsupported") return null;
-
-  const on = state === "on";
-  const label =
-    state === "denied" ? "Desktop alerts blocked in browser settings" : on ? "Disable desktop alerts" : "Enable desktop alerts";
-
-  const toggle = async () => {
-    if (on) {
-      disableDesktopAlerts();
-      return;
-    }
-    if (state === "denied") {
-      toast.error("Desktop alerts are blocked", {
-        description: "Allow notifications for this site in your browser's site settings, then try again.",
-      });
-      return;
-    }
-    const result = await enableDesktopAlerts();
-    if (result === "on") {
-      toast.success("Desktop alerts enabled", { description: "Critical alerts will reach you even when this tab is hidden." });
-      showDesktopAlert({ title: "VITA desktop alerts on", body: "You'll be notified of critical alerts and escalations.", tag: "vita-test" });
-    }
-  };
-
-  return (
-    <button
-      onClick={toggle}
-      aria-label={label}
-      aria-pressed={on}
-      title={label}
-      className={clsx(
-        "grid size-9 place-items-center rounded-xl border bg-overlay/[0.03] transition",
-        on ? "border-accent/40 text-accent" : "border-line text-muted hover:text-ink",
-      )}
-    >
-      {on ? <BellRing className="size-4" /> : <BellOff className="size-4" />}
-    </button>
-  );
-}
-
-export function TopBar({ onOpenPalette }: { onOpenPalette: () => void }) {
-  const now = useNow();
-  const missions = useMissions();
-  const dashboard = useDashboard();
-  const soundOn = useSoundEnabled();
+export function TopBar({ onOpenPalette, onOpenNav }: { onOpenPalette: () => void; onOpenNav: () => void }) {
   const online = useOnline();
 
-  // The longest-running active mission drives the headline MET clock.
-  const primary = missions.data
-    ?.filter((m) => m.status === "Active")
-    .sort((a, b) => a.launchDate.localeCompare(b.launchDate))[0];
-
-  const criticalCount = dashboard.data?.openCriticalAlerts ?? 0;
-  const escalatedCount = dashboard.data?.escalatedAlerts ?? 0;
-  const link = useLinkStatus();
-  const pill = LINK_PILL[link.state];
-
   return (
-    <div className="sticky top-0 z-10 border-b border-line bg-canvas/70 backdrop-blur-xl">
+    <div className="sticky top-0 z-20">
       {!online && (
-        <div role="status" className="flex items-center justify-center gap-2 bg-caution/15 py-1 font-mono text-[10.5px] tracking-[0.14em] text-caution uppercase">
-          <WifiOff className="size-3.5" aria-hidden />
-          Offline · showing last cached data — updates resume when the connection returns
+        <div role="status" className="flex items-center justify-center gap-2 bg-caution/12 px-4 py-1.5 text-[12px] font-medium text-caution">
+          <WifiOff className="size-3.5 shrink-0" aria-hidden />
+          Offline. Showing the last cached data; updates resume when the connection returns.
         </div>
       )}
-      {/* Alarm strips, most severe wins: escalated (master alarm) > open critical (master caution). */}
-      {escalatedCount > 0 ? (
-        <Link
-          href="/alerts"
-          className="flex animate-blink items-center justify-center gap-2 bg-critical py-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] text-white uppercase"
-        >
-          <Siren className="size-3.5" aria-hidden />
-          Master alarm · {escalatedCount} escalated alert{escalatedCount > 1 ? "s" : ""} unacknowledged
-        </Link>
-      ) : criticalCount > 0 && (
-        <Link
-          href="/alerts"
-          className="flex items-center justify-center gap-2 bg-critical/12 py-1 font-mono text-[10.5px] tracking-[0.18em] text-critical uppercase transition hover:bg-critical/20"
-        >
-          <span aria-hidden className="size-1.5 animate-blink rounded-full bg-current" />
-          Master caution · {criticalCount} critical alert{criticalCount > 1 ? "s" : ""} open
-        </Link>
-      )}
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-6 px-4 md:px-10">
-        <div className="hidden items-center gap-6 font-mono text-xs sm:flex">
-          {primary && (
-            <div className="flex items-baseline gap-2">
-              <span className="hud-label !text-[9.5px]">MET · {primary.name}</span>
-              <span className="tabular-nums text-accent">{now ? formatMet(primary.launchDate, now) : "T+ --d --:--:--"}</span>
-            </div>
-          )}
-          <div className="flex items-baseline gap-2">
-            <span className="hud-label !text-[9.5px]">UTC</span>
-            <span className="tabular-nums text-ink">{now ? formatUtcClock(now) : "--:--:--"}</span>
-          </div>
-        </div>
+      <EscalationStrip />
 
-        <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/system"
-            title="Real-time link (SignalR)"
-            className={clsx(
-              "hidden items-center gap-2 rounded-full border px-3 py-1 font-mono text-[10px] tracking-widest uppercase transition hover:brightness-125 md:inline-flex",
-              pill.className,
-            )}
-          >
-            <span aria-hidden className="size-1.5 animate-blink rounded-full bg-current shadow-[0_0_8px_currentColor]" />
-            {pill.label}
-            {link.state === "connected" && link.latencyMs !== null && (
-              <span className="text-muted normal-case tracking-normal">{link.latencyMs}ms</span>
-            )}
-          </Link>
+      <header className="glass-blur flex h-14 items-center gap-3 border-b border-line px-4 sm:px-6 lg:px-8">
+        {/* Mobile: menu + wordmark */}
+        <IconButton onClick={onOpenNav} aria-label="Open navigation" className="-ml-1.5 lg:hidden">
+          <Menu />
+        </IconButton>
+        <Link href="/" className="lg:hidden" aria-label="VITA overview">
+          <Wordmark />
+        </Link>
+
+        <Suspense fallback={<div className="hidden lg:block" />}>
+          <Breadcrumb />
+        </Suspense>
+
+        <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
+          <LinkPill />
+          <UtcClock />
 
           <button
             onClick={onOpenPalette}
-            className="flex h-9 items-center gap-2 rounded-xl border border-line bg-overlay/[0.03] px-3 text-xs text-muted transition hover:border-accent/40 hover:text-ink"
+            className="group flex h-8 items-center gap-2 rounded-lg border border-line-strong bg-panel px-2 text-[13px] text-muted shadow-[var(--shadow-sm)] transition-colors hover:text-ink sm:w-56 sm:px-2.5 lg:w-64"
+            aria-label="Search or run a command"
           >
-            <Search className="size-3.5" aria-hidden />
-            <span className="hidden sm:inline">Search crew, pages…</span>
-            <kbd className="ml-2 hidden rounded-md border border-line px-1.5 font-mono text-[10px] sm:inline">Ctrl K</kbd>
+            <Search className="size-4 shrink-0 text-faint group-hover:text-muted" aria-hidden />
+            <span className="hidden flex-1 text-left sm:inline">Search or jump to…</span>
+            <span className="hidden items-center gap-0.5 sm:flex">
+              <Kbd>Ctrl</Kbd>
+              <Kbd>K</Kbd>
+            </span>
           </button>
 
-          <ThemeToggle />
-
-          <DesktopAlertsToggle />
-
-          <button
-            onClick={() => setSoundEnabled(!soundOn)}
-            aria-label={soundOn ? "Mute alert sounds" : "Unmute alert sounds"}
-            aria-pressed={soundOn}
-            className="grid size-9 place-items-center rounded-xl border border-line bg-overlay/[0.03] text-muted transition hover:text-ink"
-          >
-            {soundOn ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-          </button>
+          <AlertsButton />
+          <SettingsMenu />
         </div>
-      </div>
+      </header>
+    </div>
+  );
+}
+
+/** Overview / Crew / Daniel Reyes */
+function Breadcrumb() {
+  const pathname = usePathname();
+  const item = navItemFor(pathname);
+  const crewId = pathname.startsWith("/crew/") ? pathname.split("/")[2] : null;
+  const astronaut = useQuery({ ...queries.astronaut(crewId ?? ""), enabled: crewId !== null });
+
+  return (
+    <nav aria-label="Breadcrumb" className="hidden min-w-0 items-center gap-1.5 text-[13.5px] lg:flex">
+      <span className="text-faint">VITA</span>
+      {item && (
+        <>
+          <ChevronRight className="size-3.5 shrink-0 text-faint" aria-hidden />
+          {crewId ? (
+            <Link href={item.href} className="text-muted transition-colors hover:text-ink">
+              {item.label}
+            </Link>
+          ) : (
+            <span className="font-medium text-ink">{item.label}</span>
+          )}
+        </>
+      )}
+      {crewId && (
+        <>
+          <ChevronRight className="size-3.5 shrink-0 text-faint" aria-hidden />
+          <span className="truncate font-medium text-ink">
+            {astronaut.data ? `${astronaut.data.firstName} ${astronaut.data.lastName}` : "…"}
+          </span>
+        </>
+      )}
+    </nav>
+  );
+}
+
+function LinkPill() {
+  const link = useLinkStatus();
+  const live = link.state === "connected";
+  return (
+    <Link
+      href="/system"
+      title="Real-time uplink (SignalR)"
+      className={clsx(
+        "hidden h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] font-medium transition-colors hover:bg-overlay/[0.05] lg:flex",
+        live ? "text-muted" : link.state === "disconnected" ? "text-critical" : "text-caution",
+      )}
+    >
+      <span
+        aria-hidden
+        className={clsx("size-1.5 rounded-full", live ? "bg-nominal" : link.state === "disconnected" ? "bg-critical" : "bg-caution animate-blink")}
+      />
+      {live ? "Live" : link.state === "disconnected" ? "Offline" : "Connecting"}
+      {live && link.latencyMs !== null && <span className="tnum font-normal text-faint">{link.latencyMs}ms</span>}
+    </Link>
+  );
+}
+
+function UtcClock() {
+  const now = useNow();
+  return (
+    <span className="tnum hidden h-8 items-center gap-1.5 px-2 font-mono text-[12.5px] text-ink xl:flex" title="Coordinated Universal Time">
+      <span className="font-sans text-[11.5px] font-medium text-faint">UTC</span>
+      {now ? formatUtcClock(now) : "--:--:--"}
+    </span>
+  );
+}
+
+function AlertsButton() {
+  const { data } = useDashboard();
+  const hydrated = useHydrated();
+  const open = hydrated ? (data?.openAlerts ?? 0) : 0;
+  const critical = hydrated ? (data?.openCriticalAlerts ?? 0) : 0;
+
+  return (
+    <Link
+      href="/alerts"
+      aria-label={`Alerts: ${open} open, ${critical} critical`}
+      title={open ? `${open} open alerts · ${critical} critical` : "No open alerts"}
+      className="relative grid size-8 place-items-center rounded-lg text-muted transition-colors hover:bg-overlay/[0.06] hover:text-ink"
+    >
+      <BellRing className="size-4" aria-hidden />
+      {open > 0 && (
+        <span
+          className={clsx(
+            "tnum absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold ring-2 ring-canvas",
+            critical > 0 ? "bg-critical-solid text-white" : "bg-caution text-white",
+          )}
+        >
+          {open > 99 ? "99+" : open}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+/** Only escalated (unacknowledged past the deadline) alerts earn a full-width strip. */
+function EscalationStrip() {
+  const { data } = useDashboard();
+  const hydrated = useHydrated();
+  const escalated = hydrated ? (data?.escalatedAlerts ?? 0) : 0;
+  if (escalated === 0) return null;
+
+  return (
+    <div role="alert" className="flex items-center justify-center gap-3 bg-critical-solid px-4 py-1.5 text-[12.5px] font-medium text-white">
+      <Siren className="size-3.5 shrink-0" aria-hidden />
+      <span className="truncate">
+        {escalated} escalated alert{escalated > 1 ? "s" : ""} waiting for acknowledgement
+      </span>
+      <Link href="/alerts" className="shrink-0 rounded-md bg-white/15 px-2 py-0.5 text-[12px] font-semibold transition-colors hover:bg-white/25">
+        Review
+      </Link>
     </div>
   );
 }

@@ -1,83 +1,111 @@
 import clsx from "clsx";
-import { AlertTriangle, CheckCircle2, OctagonAlert } from "lucide-react";
+import { CircleCheck, OctagonAlert, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { AlertStatusBadge } from "@/components/ui/badges";
 import { EscalationBadge } from "@/components/ui/ews";
+import { Checkbox } from "@/components/ui/primitives";
 import type { Alert } from "@/lib/api/types";
 import { METRIC_LABELS, timeAgo } from "@/lib/format";
 import { AlertActions } from "./alert-actions";
 
-/** Timeline-style alert feed. */
+/** Severity icon used across alert views. */
+export function SeverityIcon({ alert, className }: { alert: Alert; className?: string }) {
+  const resolved = alert.status === "Resolved";
+  const critical = alert.severity === "Critical";
+  const Icon = resolved ? CircleCheck : critical ? OctagonAlert : TriangleAlert;
+  return (
+    <Icon
+      aria-label={resolved ? "Resolved" : alert.severity}
+      className={clsx("size-4 shrink-0", resolved ? "text-faint" : critical ? "text-critical" : "text-caution", className)}
+    />
+  );
+}
+
+/** Alert rows: severity, message, who/what/when, and inline actions. */
 export function AlertList({
   alerts,
   showAstronaut = true,
   compact = false,
   dense = false,
+  selected,
+  onToggle,
+  onSelectAstronaut,
 }: {
   alerts: Alert[];
   showAstronaut?: boolean;
+  /** Hides the status badge (for views already filtered to one status). */
   compact?: boolean;
-  /** Single-line rows with tighter spacing — for fixed-height dashboard cards. */
+  /** Single-line rows for tight cards. */
   dense?: boolean;
+  /** Enables row checkboxes for bulk actions. */
+  selected?: ReadonlySet<string>;
+  onToggle?: (id: string, checked: boolean) => void;
+  /** Opens the quick view instead of navigating to the profile. */
+  onSelectAstronaut?: (id: string) => void;
 }) {
   return (
-    <ol className={dense ? "space-y-1.5" : "space-y-2"}>
+    <ul className="@container divide-y divide-line">
       {alerts.map((alert) => {
-        const critical = alert.severity === "Critical";
         const resolved = alert.status === "Resolved";
-        const Icon = resolved ? CheckCircle2 : critical ? OctagonAlert : AlertTriangle;
+        const escalated = alert.escalationLevel > 0 && alert.status === "Open";
+        const isSelected = selected?.has(alert.id) ?? false;
 
         return (
           <li
             key={alert.id}
             className={clsx(
-              "group relative flex items-start gap-3 overflow-hidden rounded-xl border border-line bg-overlay/[0.015] pr-3 pl-4 transition hover:bg-overlay/[0.03]",
-              dense ? "items-center py-2" : "flex-wrap py-3",
-              resolved && "opacity-55",
-              critical && !resolved && "border-critical/25",
-              alert.escalationLevel > 0 && alert.status === "Open" && "glow-critical",
+              "group flex flex-wrap gap-x-3 gap-y-2 py-3 transition-colors compact:py-2 @2xl:flex-nowrap",
+              dense ? "items-center" : "items-start",
+              isSelected && "bg-accent/[0.04]",
             )}
           >
-            <span
-              aria-hidden
-              className={clsx(
-                "absolute inset-y-0 left-0 w-[3px]",
-                resolved ? "bg-faint" : critical ? "bg-critical shadow-[0_0_12px_var(--color-critical)]" : "bg-caution",
-              )}
-            />
-            <Icon
-              aria-hidden
-              className={clsx(
-                "size-4 shrink-0",
-                !dense && "mt-0.5",
-                resolved ? "text-faint" : critical ? "animate-blink text-critical" : "text-caution",
-              )}
-            />
-            <div className="min-w-0 flex-1">
-              <p className={clsx("font-medium text-ink", dense ? "truncate text-[13px]" : "text-sm")} title={alert.message}>
+            {onToggle && (
+              <Checkbox
+                checked={isSelected}
+                onChange={(checked) => onToggle(alert.id, checked)}
+                label={`Select alert: ${alert.message}`}
+                className={dense ? "" : "mt-0.5"}
+              />
+            )}
+            <SeverityIcon alert={alert} className={dense ? "" : "mt-0.5"} />
+            <div className={clsx("min-w-0 flex-1 @2xl:basis-0", onToggle ? "basis-[calc(100%-4rem)]" : "basis-[calc(100%-2.5rem)]", resolved && "opacity-60")}>
+              <p className={clsx("text-[13.5px] font-medium text-ink", dense && "truncate")} title={alert.message}>
                 {alert.message}
               </p>
-              <p className={clsx("font-mono text-[11px] text-muted", dense ? "truncate" : "mt-1")}>
-                {showAstronaut && (
-                  <>
-                    <Link href={`/crew/${alert.astronautId}`} className="text-accent hover:underline">
+              <p className={clsx("mt-0.5 text-[12.5px] text-muted", dense && "truncate")}>
+                {showAstronaut &&
+                  (onSelectAstronaut ? (
+                    <button onClick={() => onSelectAstronaut(alert.astronautId)} className="font-medium text-ink hover:underline">
+                      {alert.astronautName}
+                    </button>
+                  ) : (
+                    <Link href={`/crew/${alert.astronautId}`} className="font-medium text-ink hover:underline">
                       {alert.astronautName}
                     </Link>
-                    {" · "}
-                  </>
-                )}
-                {METRIC_LABELS[alert.metric]} · {timeAgo(alert.raisedAtUtc)}
+                  ))}
+                {showAstronaut && <span className="text-faint"> · </span>}
+                {METRIC_LABELS[alert.metric]}
+                <span className="text-faint"> · </span>
+                <time dateTime={alert.raisedAtUtc} title={new Date(alert.raisedAtUtc).toLocaleString()}>
+                  {timeAgo(alert.raisedAtUtc)}
+                </time>
                 {!dense && alert.resolutionNote && <span className="text-faint"> · “{alert.resolutionNote}”</span>}
               </p>
             </div>
-            <div className={clsx("flex shrink-0 items-center gap-2", !dense && "flex-wrap")}>
-              {alert.status === "Open" && <EscalationBadge level={alert.escalationLevel} />}
+            <div
+              className={clsx(
+                "flex max-w-full min-w-0 items-center gap-2 @2xl:ml-0 @2xl:w-auto @2xl:shrink-0 @2xl:justify-end",
+                onToggle ? "ml-[3.25rem]" : "ml-7",
+                !dense && "flex-wrap",
+              )}
+            >
+              {escalated && <EscalationBadge level={alert.escalationLevel} />}
               {!compact && <AlertStatusBadge status={alert.status} />}
               <AlertActions alert={alert} />
             </div>
           </li>
         );
       })}
-    </ol>
+    </ul>
   );
 }

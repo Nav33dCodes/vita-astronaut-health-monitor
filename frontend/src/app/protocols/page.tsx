@@ -16,13 +16,13 @@ export default function ProtocolsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Medical operations"
+        eyebrow="System"
         title="Monitoring protocols"
         subtitle="The reference ranges and alerting rules the ground segment applies to every reading."
       />
 
       <div className="grid gap-4 lg:grid-cols-12">
-        <Card hud className="lg:col-span-8">
+        <Card className="lg:col-span-8">
           <CardTitle>Vital sign limits</CardTitle>
           {thresholds.isPending ? (
             <Skeleton className="h-96" />
@@ -35,14 +35,14 @@ export default function ProtocolsPage() {
               ))}
             </div>
           )}
-          <div className="mt-5 flex flex-wrap gap-4 font-mono text-[10px] text-muted">
+          <div className="mt-5 flex flex-wrap gap-4 text-[12px] text-muted">
             <Legend className="bg-critical/70">Critical</Legend>
             <Legend className="bg-caution/70">Warning</Legend>
             <Legend className="bg-nominal/60">Safe range</Legend>
           </div>
         </Card>
 
-        <div className="space-y-4 lg:col-span-4">
+        <div className="space-y-3 lg:col-span-4">
           <Policy icon={<Stethoscope />} title="Evaluation">
             Every reading is checked against all seven limits the moment it arrives. Values outside the safe range raise a{" "}
             <b className="text-caution">warning</b>; values beyond the critical limit raise a <b className="text-critical">critical</b> alert.
@@ -79,25 +79,25 @@ export default function ProtocolsPage() {
             )}
           </Policy>
           <Policy icon={<ShieldAlert />} title="Alert lifecycle">
-            <span className="flex flex-wrap items-center gap-1.5 font-mono text-xs">
+            <span className="flex flex-wrap items-center gap-1.5 text-[13px] font-medium">
               <span className="text-accent">Open</span>
               <ArrowRight className="size-3" />
-              <span className="text-violet">Acknowledged</span>
+              <span className="text-ink">Acknowledged</span>
               <ArrowRight className="size-3" />
-              <span className="text-ink">Resolved</span>
+              <span className="text-muted">Resolved</span>
             </span>
             <span className="mt-2 block">
               Crew health status follows the worst unresolved alert: Critical → Caution → Nominal. No readings yet means Unknown.
             </span>
           </Policy>
-          <p className="px-1 font-mono text-[10px] leading-relaxed text-faint">
+          <p className="px-1 text-[12px] leading-relaxed text-faint">
             Reference ranges are loosely based on NASA-STD-3001 crew health standards. Demo values — not for clinical use.
           </p>
         </div>
       </div>
 
       <Card className="mt-4">
-        <CardTitle>Early warning score (adapted NEWS2)</CardTitle>
+        <CardTitle description="Adapted from NEWS2 (Royal College of Physicians).">Early warning score</CardTitle>
         {scoring.isPending ? (
           <Skeleton className="h-64" />
         ) : scoring.isError ? (
@@ -134,7 +134,7 @@ function toColumns(bands: EarlyWarningScoring["parameters"][number]["bands"]): s
 function EwsTable({ scoring }: { scoring: EarlyWarningScoring }) {
   return (
     <>
-      <p className="mb-4 max-w-3xl text-sm text-muted">
+      <p className="mb-4 max-w-3xl text-[13.5px] leading-relaxed text-muted">
         Each vital earns 0–3 points by how far it sits from normal; the sum (max {scoring.maxScore}) gives one number for overall
         deterioration. Total ≥ {scoring.highRiskFrom} is <b className="text-critical">high</b> risk, {scoring.mediumRiskFrom}–
         {scoring.highRiskFrom - 1} <b className="text-caution">medium</b>, and any single parameter scoring 3 is{" "}
@@ -142,10 +142,10 @@ function EwsTable({ scoring }: { scoring: EarlyWarningScoring }) {
         the last 60 minutes and projecting when a safe limit will be crossed.
       </p>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[640px] text-center font-mono text-xs">
+        <table className="tnum w-full min-w-[640px] text-center text-[13px]">
           <thead>
             <tr className="border-b border-line">
-              <th className="hud-label py-2 text-left !text-[9.5px]">Parameter</th>
+              <th className="py-2 text-left text-[12px] font-medium text-muted">Parameter</th>
               {COLUMN_POINTS.map((points, i) => (
                 <th key={i} className={`py-2 ${POINT_TEXT[points]}`}>
                   {points}
@@ -156,11 +156,11 @@ function EwsTable({ scoring }: { scoring: EarlyWarningScoring }) {
           <tbody className="divide-y divide-line">
             {scoring.parameters.map((p) => (
               <tr key={p.metric}>
-                <td className="py-2 text-left font-sans text-sm text-ink">
-                  {p.label} <span className="font-mono text-[11px] text-muted">({p.unit})</span>
+                <td className="py-2.5 text-left text-ink">
+                  {p.label} <span className="text-[12px] text-muted">({p.unit})</span>
                 </td>
                 {toColumns(p.bands).map((cell, i) => (
-                  <td key={i} className="py-2 text-muted">
+                  <td key={i} className="py-2.5 text-muted">
                     {cell}
                   </td>
                 ))}
@@ -195,16 +195,16 @@ function ThresholdRow({ threshold: t }: { threshold: Threshold }) {
   return (
     <div className="grid gap-3 py-4 sm:grid-cols-[180px_1fr] sm:items-center">
       <div>
-        <p className="font-medium text-ink">{t.label}</p>
-        <p className="font-mono text-[11px] text-muted">{t.unit}</p>
+        <p className="text-[13.5px] font-medium text-ink">{t.label}</p>
+        <p className="text-[12px] text-muted">{t.unit}</p>
       </div>
       <div>
-        <div className="relative flex h-2.5 overflow-hidden rounded-full">
+        <div className="relative flex h-2 gap-px overflow-hidden rounded-full">
           {zones.map((z, i) => (
             <div key={i} className={z.className} style={{ width: `${pct(z.to) - pct(z.from)}%` }} />
           ))}
         </div>
-        <div className="relative mt-1.5 h-4 font-mono text-[10px] text-muted">
+        <div className="tnum relative mt-1.5 h-4 text-[11.5px] text-muted">
           {marks.map((v) => (
             <span key={v} className="absolute -translate-x-1/2" style={{ left: `${pct(v)}%` }}>
               {v}
@@ -219,11 +219,11 @@ function ThresholdRow({ threshold: t }: { threshold: Threshold }) {
 function Policy({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <Card className="p-4">
-      <div className="mb-2 flex items-center gap-2 text-accent [&_svg]:size-4">
+      <div className="mb-1.5 flex items-center gap-2 text-muted [&_svg]:size-4">
         {icon}
-        <h3 className="text-sm font-semibold text-ink">{title}</h3>
+        <h3 className="text-[13.5px] font-semibold text-ink">{title}</h3>
       </div>
-      <p className="text-sm leading-relaxed text-muted">{children}</p>
+      <div className="text-[13px] leading-relaxed text-muted">{children}</div>
     </Card>
   );
 }

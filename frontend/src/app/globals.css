@@ -1,60 +1,64 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Design tokens
-   Dark  — "Mission Control Premium": deep navy, HUD accents, glass surfaces
-   Light — "Clean Orbit": airy minimalism with subtle frosted glass
-   Components only use these tokens, so both themes stay in sync.
+   VITA design system
+   Calm by default, loud only when it matters. Neutral surfaces, one accent,
+   status colours reserved for clinical state. Light is the default theme.
 --------------------------------------------------------------------------- */
+
+/* Sidebar collapse is set on <html> before first paint (see theme script), so it never flashes. */
+@custom-variant collapsed (&:where([data-sidebar="collapsed"] *));
+/* Table density preference (Settings → Density). */
+@custom-variant compact (&:where([data-density="compact"] *));
+
 @theme {
-  --color-canvas: #04060c;
-  --color-panel: #0a0f1c;
-  --color-panel-raised: #111a2e;
-  --color-line: rgb(148 163 184 / 0.12);
-  --color-line-strong: rgb(148 163 184 / 0.24);
-  --color-ink: #e8eef9;
-  --color-muted: #8494b2;
-  --color-faint: #56627d;
-  --color-accent: #22d3ee;
-  --color-accent-ink: #031318;
-  --color-violet: #a78bfa;
-  --color-nominal: #34d399;
-  --color-caution: #fbbf24;
-  --color-critical: #fb4d6d;
-  /* Tint used for hover/fill overlays: white on dark, slate on light. */
-  --color-overlay: #ffffff;
-  --color-track: rgb(148 163 184 / 0.1);
-  --color-scrim: rgb(2 4 10 / 0.72);
+  --color-canvas: #f7f7f8;
+  --color-panel: #ffffff;
+  --color-panel-raised: #f4f4f5;
+  --color-line: #ebebee;
+  --color-line-strong: #dcdce1;
+  --color-ink: #111114;
+  --color-muted: #66666f;
+  --color-faint: #a0a0aa;
+  --color-accent: #5b6cff;
+  --color-accent-ink: #ffffff;
+  --color-violet: #8b7cf6;
+  --color-nominal: #12a150;
+  --color-caution: #d97706;
+  --color-critical: #e5484d;
+  /* Solid fill behind white text (strips, badges): stays AA-legible in both themes. */
+  --color-critical-solid: #dc3e42;
+  /* Tint used for hover/fill overlays. */
+  --color-overlay: #111114;
+  --color-track: #efeff2;
+  --color-scrim: rgb(17 17 20 / 0.32);
 
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
 
-  --animate-pulse-ring: pulse-ring 2s ease-out infinite;
+  --radius-card: 12px;
+
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+
   --animate-blink: blink 1.6s ease-in-out infinite;
-  --animate-fade-up: fade-up 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-  --animate-page-in: page-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+  --animate-fade-up: fade-up 0.32s var(--ease-out-quint) both;
+  --animate-fade-in: fade-in 0.18s ease-out both;
+  --animate-page-in: page-in 0.2s var(--ease-out-quint) both;
+  --animate-pop-in: pop-in 0.16s var(--ease-out-quint) both;
+  --animate-slide-in-right: slide-in-right 0.26s var(--ease-out-quint) both;
+  --animate-slide-in-left: slide-in-left 0.26s var(--ease-out-quint) both;
   --animate-loading-in: loading-in 0.2s ease-out 0.15s both;
   --animate-indeterminate: indeterminate 1.1s ease-in-out infinite;
+  --animate-flash: flash 0.9s ease-out;
+  --animate-pulse-soft: pulse-soft 2s ease-in-out infinite;
 
-  @keyframes pulse-ring {
-    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-critical) 45%, transparent); }
-    100% { box-shadow: 0 0 0 14px transparent; }
-  }
   @keyframes blink {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.35; }
   }
-  --animate-heartbeat: heartbeat var(--beat, 1s) ease-out infinite;
-  --animate-tick: tick 0.6s ease-out;
-
-  @keyframes heartbeat {
-    0%, 40%, 100% { transform: scale(1); }
-    12% { transform: scale(1.28); }
-    24% { transform: scale(1.05); }
-  }
-  @keyframes tick {
-    from { opacity: 0.35; filter: brightness(1.6); }
-    to { opacity: 1; filter: none; }
+  @keyframes pulse-soft {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 40%, transparent); }
+    60% { box-shadow: 0 0 0 4px transparent; }
   }
   @keyframes loading-in {
     from { opacity: 0; }
@@ -65,151 +69,146 @@
     to { transform: translateX(300%); }
   }
   @keyframes page-in {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(3px); }
     to { opacity: 1; transform: none; }
   }
   @keyframes fade-up {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  @keyframes slide-in-right {
+    from { transform: translateX(24px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+  @keyframes slide-in-left {
+    from { transform: translateX(-24px); opacity: 0; }
+    to { transform: none; opacity: 1; }
+  }
+  /* Value-changed highlight for live table cells. */
+  @keyframes flash {
+    from { background-color: color-mix(in srgb, var(--color-accent) 14%, transparent); }
+    to { background-color: transparent; }
   }
 }
 
-/* Surface recipes, overridden per theme. */
 :root {
-  --glass-bg: linear-gradient(180deg, rgb(17 26 46 / 0.55), rgb(10 15 28 / 0.75));
-  --glass-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.04), 0 24px 48px -28px rgb(0 0 0 / 0.7);
-  --glass-blur: 16px;
-  --hud-bracket: color-mix(in srgb, var(--color-accent) 60%, transparent);
-  --glow-strength: 45%;
-  --page-bg:
-    radial-gradient(ellipse 70% 45% at 50% -12%, rgb(34 211 238 / 0.11), transparent 65%),
-    radial-gradient(ellipse 45% 35% at 100% 0%, rgb(167 139 250 / 0.08), transparent 60%),
-    linear-gradient(rgb(148 163 184 / 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(148 163 184 / 0.035) 1px, transparent 1px);
-  --page-bg-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+  --shadow-sm: 0 1px 2px 0 rgb(17 17 20 / 0.04);
+  --shadow-pop: 0 1px 2px rgb(17 17 20 / 0.05), 0 12px 32px -8px rgb(17 17 20 / 0.16);
+  color-scheme: light;
 }
 
-:root[data-theme="light"] {
-  --color-canvas: #f4f6fa;
-  --color-panel: #ffffff;
-  --color-panel-raised: #eef2f7;
-  --color-line: rgb(15 23 42 / 0.07);
-  --color-line-strong: rgb(15 23 42 / 0.13);
-  --color-ink: #0b1220;
-  --color-muted: #55647e;
-  --color-faint: #94a3b8;
-  --color-accent: #0891b2;
+:root[data-theme="dark"] {
+  --color-canvas: #0b0b0d;
+  --color-panel: #121215;
+  --color-panel-raised: #18181c;
+  --color-line: #222227;
+  --color-line-strong: #2e2e35;
+  --color-ink: #ececef;
+  --color-muted: #8f8f99;
+  --color-faint: #5d5d66;
+  --color-accent: #7280ff;
   --color-accent-ink: #ffffff;
-  --color-violet: #7c3aed;
-  --color-nominal: #059669;
-  --color-caution: #d97706;
-  --color-critical: #e11d48;
-  --color-overlay: #0f172a;
-  --color-track: rgb(15 23 42 / 0.07);
-  --color-scrim: rgb(15 23 42 / 0.28);
+  --color-violet: #a495ff;
+  --color-nominal: #3dd68c;
+  --color-caution: #f5a524;
+  --color-critical: #ff6369;
+  --color-critical-solid: #c9353a;
+  --color-overlay: #ffffff;
+  --color-track: #1f1f24;
+  --color-scrim: rgb(0 0 0 / 0.6);
 
-  --glass-bg: linear-gradient(180deg, rgb(255 255 255 / 0.82), rgb(255 255 255 / 0.62));
-  --glass-shadow:
-    inset 0 1px 0 0 rgb(255 255 255 / 0.9),
-    0 1px 2px 0 rgb(15 23 42 / 0.04),
-    0 12px 32px -18px rgb(15 23 42 / 0.16);
-  --glass-blur: 20px;
-  --hud-bracket: color-mix(in srgb, var(--color-accent) 45%, transparent);
-  --glow-strength: 22%;
-  /* Pastel aurora + fine dot grid: minimal, but not plain white. */
-  --page-bg:
-    radial-gradient(ellipse 60% 40% at 15% -10%, rgb(8 145 178 / 0.10), transparent 65%),
-    radial-gradient(ellipse 50% 40% at 95% 0%, rgb(124 58 237 / 0.07), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 50% 110%, rgb(5 150 105 / 0.05), transparent 60%),
-    radial-gradient(rgb(15 23 42 / 0.07) 1px, transparent 1px);
-  --page-bg-size: 100% 100%, 100% 100%, 100% 100%, 22px 22px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.04), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  color-scheme: dark;
 }
 
 html {
-  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  /* Inter: disambiguated 1/l/I, straight-sided digits; tabular figures where numbers update. */
+  font-feature-settings: "cv11", "ss01", "ss03";
 }
 
 body {
   color: var(--color-ink);
   background-color: var(--color-canvas);
-  transition: background-color 0.3s ease, color 0.3s ease;
-}
-
-/*
- * The decorative backdrop (aurora + grid) sits on its own fixed, GPU-composited layer.
- * background-attachment: fixed on <body> would force a full-page repaint on every scroll
- * and every content change — the main cause of janky navigation.
- */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image: var(--page-bg);
-  background-size: var(--page-bg-size);
-  transform: translateZ(0);
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 ::selection {
-  background: color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
-/* Small uppercase mono label — the HUD "voice". A utility so variants work. */
+:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Thin, quiet scrollbars. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+
+/* Section label: small, medium weight, muted. Sentence case, no shouting. */
 @utility hud-label {
-  font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  line-height: 1.4;
   color: var(--color-muted);
 }
 
+/* Overline for tiny metadata (table heads, KPI captions). */
+@utility overline {
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--color-muted);
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum", "cv11", "ss01";
+}
+
 @layer components {
-  /* Glass-look surface used by every panel. Translucent gradient only — no backdrop blur,
-     because blurring behind dozens of cards makes every repaint expensive. */
+  /* The single surface recipe. Flat panel, hairline border, barely-there shadow. */
   .glass {
-    background: var(--glass-bg);
+    background: var(--color-panel);
     border: 1px solid var(--color-line);
-    box-shadow: var(--glass-shadow);
-    transition: border-color 0.2s ease, box-shadow 0.3s ease, transform 0.3s ease;
+    box-shadow: var(--shadow-sm);
   }
-
-  /* Real frosted blur, reserved for the few surfaces that float over content
-     (sidebar, top bar, dialogs) where it is actually visible. */
   .glass-blur {
-    backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+    background: color-mix(in srgb, var(--color-panel) 86%, transparent);
+    backdrop-filter: blur(12px) saturate(1.6);
   }
-
-  /* HUD corner brackets (top-left + bottom-right). */
+  .surface-pop {
+    background: var(--color-panel);
+    border: 1px solid var(--color-line);
+    box-shadow: var(--shadow-pop);
+  }
+  /* Kept as no-ops so legacy markup can't reintroduce HUD decoration. */
   .hud-frame {
     position: relative;
   }
-  .hud-frame::before,
-  .hud-frame::after {
-    content: "";
-    position: absolute;
-    width: 14px;
-    height: 14px;
-    pointer-events: none;
-    border-color: var(--hud-bracket);
+  .glow-critical {
+    border-color: color-mix(in srgb, var(--color-critical) 38%, var(--color-line));
   }
-  .hud-frame::before {
-    top: -1px;
-    left: -1px;
-    border-top: 1px solid;
-    border-left: 1px solid;
-    border-top-left-radius: 16px;
-  }
-  .hud-frame::after {
-    right: -1px;
-    bottom: -1px;
-    border-right: 1px solid;
-    border-bottom: 1px solid;
-    border-bottom-right-radius: 16px;
+  .glow-caution {
+    border-color: color-mix(in srgb, var(--color-caution) 34%, var(--color-line));
   }
 
-  /* Notifications: one accent per toast type drives the rail, icon chip and action button. */
+  /* Notifications: one accent per toast type drives the rail and icon chip. */
   [data-sonner-toast] {
     --toast-accent: var(--color-accent);
   }
@@ -222,7 +221,6 @@ body::before {
   [data-sonner-toast][data-type="warning"] {
     --toast-accent: var(--color-caution);
   }
-  /* Report jobs: rail follows the job phase. */
   [data-sonner-toast].report-toast-ready {
     --toast-accent: var(--color-nominal);
   }
@@ -232,29 +230,18 @@ body::before {
   [data-sonner-toast].report-toast-cancelled {
     --toast-accent: var(--color-faint);
   }
-  .vita-toast::before {
-    content: "";
-    position: absolute;
-    inset-block: 10px;
-    left: 0;
-    width: 3px;
-    border-radius: 0 3px 3px 0;
-    background: var(--toast-accent);
-    box-shadow: 0 0 12px var(--toast-accent);
+
+  .select-chevron {
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238f8f99' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
   }
 
-  .glow-critical {
-    border-color: color-mix(in srgb, var(--color-critical) 50%, transparent);
-    box-shadow:
-      var(--glass-shadow),
-      0 0 0 1px color-mix(in srgb, var(--color-critical) 14%, transparent),
-      0 0 32px -8px color-mix(in srgb, var(--color-critical) var(--glow-strength), transparent);
-  }
-  .glow-caution {
-    border-color: color-mix(in srgb, var(--color-caution) 38%, transparent);
-    box-shadow:
-      var(--glass-shadow),
-      0 0 28px -12px color-mix(in srgb, var(--color-caution) var(--glow-strength), transparent);
+  /* Native <dialog> open/close, consistent everywhere. */
+  dialog::backdrop {
+    background: var(--color-scrim);
+    animation: fade-in 0.18s ease-out both;
   }
 }
 
@@ -266,4 +253,14 @@ body::before {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Wall display (Live monitor → Wall mode): the page goes full-screen, chrome steps aside. */
+:root:fullscreen aside[aria-label="Sidebar"],
+:root:fullscreen nav[aria-label="Primary"] {
+  display: none;
+}
+:root:fullscreen {
+  overflow-y: auto;
+  background: var(--color-canvas);
 }

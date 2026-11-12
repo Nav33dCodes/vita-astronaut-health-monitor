@@ -5,7 +5,7 @@ import { queries } from "@/lib/api/queries";
 
 /** Page sizes shared by pages and the prefetcher, so prefetched entries match exactly. */
 export const PAGE_SIZE = {
-  overviewAlerts: 3,
+  overviewAlerts: 6,
   alerts: 10,
   crewTable: 12,
   crewGrid: 9,

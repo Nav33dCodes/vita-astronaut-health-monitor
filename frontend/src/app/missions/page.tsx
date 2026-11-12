@@ -35,7 +35,7 @@ export default function MissionsPage() {
   return (
     <>
       <PageHeader
-        eyebrow="Flight manifest"
+        eyebrow="Operations"
         title="Missions"
         subtitle="Crewed missions and their medical rosters."
         action={
@@ -46,9 +46,9 @@ export default function MissionsPage() {
       />
 
       {missions.isPending ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-64" />
+            <Skeleton key={i} className="h-64 rounded-[var(--radius-card)]" />
           ))}
         </div>
       ) : missions.isError ? (
@@ -58,7 +58,7 @@ export default function MissionsPage() {
           <EmptyState title="No missions yet" />
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {pageItems.map((m) => (
             <MissionCard key={m.id} mission={m} />
           ))}
@@ -101,23 +101,23 @@ function MissionCard({ mission }: { mission: Mission }) {
   const onError = (error: Error) => toast.error("Action failed", { description: error.message });
 
   return (
-    <Card hud={mission.status === "Active"} className="flex flex-col">
+    <Card className="flex flex-col">
       <div className="flex items-start justify-between gap-3">
-        <span className="grid size-12 place-items-center rounded-2xl bg-gradient-to-br from-accent/20 to-violet/10 text-accent shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_250%,transparent)]">
-          <Icon className="size-6" aria-hidden />
+        <span className="grid size-10 place-items-center rounded-lg bg-panel-raised text-muted ring-1 ring-line ring-inset">
+          <Icon className="size-5" aria-hidden />
         </span>
         <MissionStatusBadge status={mission.status} />
       </div>
 
-      <h2 className="mt-4 text-xl font-semibold tracking-tight text-ink">{mission.name}</h2>
-      <p className="hud-label mt-1 !text-[9.5px]">
+      <h2 className="mt-4 text-[16px] font-semibold tracking-tight text-ink">{mission.name}</h2>
+      <p className="mt-0.5 text-[12.5px] text-muted">
         {DESTINATION_LABELS[mission.destination]} · launch {formatDate(mission.launchDate)}
       </p>
-      {mission.description && <p className="mt-3 line-clamp-2 text-sm text-muted">{mission.description}</p>}
+      {mission.description && <p className="mt-3 line-clamp-2 text-[13px] text-muted">{mission.description}</p>}
 
-      <div className="mt-4 rounded-xl border border-line bg-overlay/[0.02] px-4 py-3">
-        <p className="hud-label !text-[9px]">Mission elapsed time</p>
-        <p className="mt-0.5 font-mono text-lg tabular-nums text-accent">
+      <div className="mt-4 rounded-lg bg-canvas px-3.5 py-2.5 ring-1 ring-line ring-inset">
+        <p className="text-[12px] text-muted">Mission elapsed time</p>
+        <p className="tnum mt-0.5 font-mono text-[15px] text-ink">
           {now ? formatMet(mission.launchDate, now) : "T+ --d --:--:--"}
         </p>
       </div>
@@ -129,7 +129,7 @@ function MissionCard({ mission }: { mission: Mission }) {
               <CrewAvatar key={a.id} firstName={a.firstName} lastName={a.lastName} status={a.healthStatus} size="sm" />
             ))}
           </div>
-          <span className="ml-3 font-mono text-xs text-muted">{mission.crewCount} crew</span>
+          <span className="ml-3 text-[12.5px] text-muted">{mission.crewCount} crew</span>
         </Link>
         <div className="flex items-center gap-1.5">
           <Select
@@ -168,7 +168,7 @@ function MissionCard({ mission }: { mission: Mission }) {
         title="Delete mission?"
         message={
           <>
-            <span className="text-ink">{mission.name}</span> will be removed from the flight manifest.
+            <span className="font-medium text-ink">{mission.name}</span> will be removed from the flight manifest.
           </>
         }
         confirmLabel="Delete mission"

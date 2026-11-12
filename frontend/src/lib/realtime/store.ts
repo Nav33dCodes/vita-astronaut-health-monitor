@@ -119,5 +119,9 @@ export const useLiveReadings = (astronautId: string) =>
     () => EMPTY_READINGS,
   );
 
+const NO_LIVE: Record<string, VitalReading[]> = {};
+/** Every astronaut's SignalR readings since the page loaded, keyed by astronaut id. */
+export const useAllLiveReadings = () => useSyncExternalStore(liveStore.subscribe, liveStore.get, () => NO_LIVE);
+
 const NO_ALARMS: Alert[] = [];
 export const useAlarms = () => useSyncExternalStore(alarmStore.subscribe, alarmStore.get, () => NO_ALARMS);

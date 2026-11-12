@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useSyncExternalStore } from "react";
-import { LIGHT_QUERY, THEME_STORAGE_KEY as KEY } from "./theme-script";
+import { DEFAULT_THEME, LIGHT_QUERY, THEME_STORAGE_KEY as KEY } from "./theme-script";
 
 export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = "light" | "dark";
@@ -11,9 +11,9 @@ const listeners = new Set<() => void>();
 function readPreference(): ThemePreference {
   try {
     const value = localStorage.getItem(KEY);
-    return value === "light" || value === "dark" ? value : "system";
+    return value === "light" || value === "dark" || value === "system" ? value : DEFAULT_THEME;
   } catch {
-    return "system";
+    return DEFAULT_THEME;
   }
 }
 
@@ -60,7 +60,7 @@ export function useTheme() {
       const preference = readPreference();
       return `${preference}|${resolve(preference)}`;
     },
-    () => "system|dark",
+    () => `${DEFAULT_THEME}|${DEFAULT_THEME}`,
   );
   const [preference, resolved] = snapshot.split("|") as [ThemePreference, ResolvedTheme];
   return { preference, resolved };
@@ -70,7 +70,7 @@ export function useTheme() {
 export function useThemeColors() {
   const { resolved } = useTheme();
   return useMemo(() => {
-    const fallback = { accent: "#22d3ee", violet: "#a78bfa", nominal: "#34d399", grid: "#1e293b", axis: "#56627d", panel: "#0a0f1c", line: "#1e293b", muted: "#8494b2", canvas: "#04060c" };
+    const fallback = { accent: "#5b6cff", violet: "#8b7cf6", nominal: "#12a150", caution: "#d97706", critical: "#e5484d", grid: "#efeff2", axis: "#a0a0aa", panel: "#ffffff", line: "#dcdce1", muted: "#66666f", canvas: "#f7f7f8", ink: "#111114" };
     if (typeof window === "undefined") return fallback;
     const css = getComputedStyle(document.documentElement);
     const read = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb;
@@ -78,6 +78,9 @@ export function useThemeColors() {
       accent: read("--color-accent", fallback.accent),
       violet: read("--color-violet", fallback.violet),
       nominal: read("--color-nominal", fallback.nominal),
+      caution: read("--color-caution", fallback.caution),
+      critical: read("--color-critical", fallback.critical),
+      ink: read("--color-ink", fallback.ink),
       grid: read("--color-track", fallback.grid),
       axis: read("--color-faint", fallback.axis),
       panel: read("--color-panel", fallback.panel),

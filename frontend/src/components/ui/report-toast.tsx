@@ -67,8 +67,8 @@ export function ReportToast({ option, state, startedAt, onCancel, onRetry, onDis
     <div className="flex w-full items-start gap-3" role="status" aria-live="polite">
       <span
         className={clsx(
-          "relative grid size-8 shrink-0 place-items-center rounded-xl bg-[color-mix(in_srgb,var(--toast-accent)_13%,transparent)] text-[var(--toast-accent)]",
-          busy && "after:absolute after:inset-0 after:animate-ping after:rounded-xl after:bg-[var(--toast-accent)] after:opacity-10",
+          "relative grid size-8 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,var(--toast-accent)_12%,transparent)] text-[var(--toast-accent)]",
+          busy && "after:absolute after:inset-0 after:animate-ping after:rounded-full after:bg-[var(--toast-accent)] after:opacity-10",
         )}
       >
         {icon}
@@ -77,14 +77,14 @@ export function ReportToast({ option, state, startedAt, onCancel, onRetry, onDis
       <div className="min-w-0 flex-1 pt-0.5">
         <div className="flex items-center gap-2">
           <p className="truncate text-[13px] leading-snug font-semibold tracking-tight text-ink">{title}</p>
-          <span className="rounded border border-line-strong px-1 font-mono text-[9px] font-semibold text-muted">{option.format}</span>
+          <span className="text-[11px] font-medium text-faint">{option.format === "PDF" ? ".pdf" : ".xlsx"}</span>
         </div>
         <p className="mt-0.5 truncate text-xs leading-relaxed text-muted" title={status}>
           {status}
         </p>
 
         {busy && (
-          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-overlay/[0.07]" aria-hidden>
+          <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-track" aria-hidden>
             {state.phase === "downloading" ? (
               <div
                 className="h-full rounded-full bg-[var(--toast-accent)] transition-[width] duration-300 ease-out"

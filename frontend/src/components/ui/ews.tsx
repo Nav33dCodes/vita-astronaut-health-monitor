@@ -16,11 +16,19 @@ export const RISK_TEXT: Record<EarlyWarningRisk, string> = {
   High: "text-critical",
 };
 
+/** Solid colour per risk band, for bars and dots. */
+export const RISK_BG: Record<EarlyWarningRisk, string> = {
+  Low: "bg-nominal",
+  LowMedium: "bg-caution",
+  Medium: "bg-caution",
+  High: "bg-critical",
+};
+
 const RISK_STYLE: Record<EarlyWarningRisk, string> = {
-  Low: "border-nominal/30 bg-nominal/10 text-nominal",
-  LowMedium: "border-caution/35 bg-caution/10 text-caution",
-  Medium: "border-caution/50 bg-caution/15 text-caution",
-  High: "border-critical/50 bg-critical/15 text-critical",
+  Low: "bg-nominal/[0.08] text-nominal ring-nominal/20",
+  LowMedium: "bg-caution/[0.08] text-caution ring-caution/20",
+  Medium: "bg-caution/[0.1] text-caution ring-caution/25",
+  High: "bg-critical/[0.1] text-critical ring-critical/25",
 };
 
 /** Compact early-warning score chip, e.g. "EWS 5 · Medium". */
@@ -29,13 +37,12 @@ export function EwsBadge({ score, risk, showLabel = false }: { score: number; ri
     <span
       title={`Early warning score ${score} — ${RISK_LABEL[risk]} risk`}
       className={clsx(
-        "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[10px] font-semibold whitespace-nowrap",
+        "tnum inline-flex h-[22px] items-center gap-1 rounded-md px-1.5 text-[11.5px] font-semibold whitespace-nowrap ring-1 ring-inset",
         RISK_STYLE[risk],
-        risk === "High" && "animate-blink",
       )}
     >
       EWS {score}
-      {showLabel && <span className="font-normal opacity-80">· {RISK_LABEL[risk]}</span>}
+      {showLabel && <span className="font-medium opacity-80">· {RISK_LABEL[risk]}</span>}
     </span>
   );
 }
@@ -45,10 +52,10 @@ export function EscalationBadge({ level }: { level: number }) {
   if (level <= 0) return null;
   return (
     <span
-      title={`Escalated to level ${level} — not acknowledged in time`}
-      className="inline-flex items-center gap-1 rounded-md border border-critical/60 bg-critical px-1.5 py-0.5 font-mono text-[10px] font-bold text-white shadow-[0_0_12px_var(--color-critical)]"
+      title={`Escalated to level ${level}: not acknowledged in time`}
+      className="inline-flex h-[22px] items-center gap-1 rounded-md bg-critical-solid px-1.5 text-[11.5px] font-semibold whitespace-nowrap text-white"
     >
-      ESC L{level}
+      Escalated · L{level}
     </span>
   );
 }

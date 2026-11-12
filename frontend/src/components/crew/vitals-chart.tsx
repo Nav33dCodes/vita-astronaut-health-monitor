@@ -50,7 +50,7 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
   return (
     <div>
       <div className="mb-4">
-        <Segmented label="Vital sign" options={CHART_METRICS} value={metric} onChange={setMetric} />
+        <Segmented size="sm" label="Vital sign" options={CHART_METRICS} value={metric} onChange={setMetric} />
       </div>
 
       <div className="h-80">
@@ -58,16 +58,9 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
           <AreaChart data={data} margin={{ top: 10, right: 8, bottom: 0, left: -16 }}>
             <defs>
               <linearGradient id="vital-fill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.3} />
+                <stop offset="0%" stopColor={COLORS.primary} stopOpacity={0.14} />
                 <stop offset="100%" stopColor={COLORS.primary} stopOpacity={0} />
               </linearGradient>
-              <filter id="vital-glow" x="-10%" y="-10%" width="120%" height="120%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feMerge>
-                  <feMergeNode in="blur" />
-                  <feMergeNode in="SourceGraphic" />
-                </feMerge>
-              </filter>
             </defs>
             <CartesianGrid stroke={COLORS.grid} vertical={false} />
             <XAxis
@@ -77,17 +70,15 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
               domain={["dataMin", "dataMax"]}
               tickFormatter={(t: number) => new Date(t).toLocaleString("en", { weekday: "short", hour: "2-digit" })}
               stroke={COLORS.axis}
-              fontSize={10}
-              fontFamily="var(--font-geist-mono)"
-              tickLine={false}
+              fontSize={11}
+                            tickLine={false}
               axisLine={false}
               minTickGap={32}
             />
             <YAxis
               stroke={COLORS.axis}
-              fontSize={10}
-              fontFamily="var(--font-geist-mono)"
-              tickLine={false}
+              fontSize={11}
+                            tickLine={false}
               axisLine={false}
               domain={["auto", "auto"]}
             />
@@ -96,9 +87,9 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
                 y1={threshold.warningLow ?? undefined}
                 y2={threshold.warningHigh ?? undefined}
                 fill={theme.nominal}
-                fillOpacity={0.07}
+                fillOpacity={0.06}
                 stroke={theme.nominal}
-                strokeOpacity={0.15}
+                strokeOpacity={0.35}
                 strokeDasharray="4 4"
                 ifOverflow="extendDomain"
               />
@@ -108,9 +99,8 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
               contentStyle={{
                 background: theme.panel,
                 border: `1px solid ${theme.line}`,
-                borderRadius: 12,
+                borderRadius: 10,
                 fontSize: 12,
-                fontFamily: "var(--font-geist-mono)",
                 boxShadow: "0 12px 32px -12px rgb(0 0 0 / 0.25)",
               }}
               labelStyle={{ color: theme.muted }}
@@ -124,7 +114,6 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
               stroke={COLORS.primary}
               strokeWidth={2}
               fill="url(#vital-fill)"
-              filter="url(#vital-glow)"
               dot={false}
               activeDot={{ r: 4, fill: COLORS.primary, stroke: theme.canvas, strokeWidth: 2 }}
               isAnimationActive={false}
@@ -144,8 +133,8 @@ export function VitalsChart({ readings, thresholds }: { readings: VitalSample[];
         </ResponsiveContainer>
       </div>
       {threshold && (
-        <p className="hud-label mt-3 !text-[9px]">
-          Dashed band · safe range for {threshold.label.toLowerCase()}
+        <p className="mt-3 text-[12px] text-muted">
+          Dashed band: safe range for {threshold.label.toLowerCase()}
           {isBloodPressure && " (systolic)"}
         </p>
       )}

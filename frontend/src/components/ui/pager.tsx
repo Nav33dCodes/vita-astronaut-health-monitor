@@ -7,18 +7,18 @@ interface PagerProps {
   page: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  /** Enables the "Showing 11–20 of 42" summary (full variant). */
+  /** Enables the "1–10 of 42" summary (full variant). */
   totalItems?: number;
   pageSize?: number;
   itemLabel?: string;
   /** "full" for page footers, "compact" (‹ 2/5 ›) for card headers. */
   variant?: "full" | "compact";
-  /** Next page is loading — previous rows stay visible meanwhile. */
+  /** Next page is loading: previous rows stay visible meanwhile. */
   busy?: boolean;
   className?: string;
 }
 
-/** 1 … 4 5 6 … 12 — always shows first, last and the neighbours of the current page. */
+/** 1 … 4 5 6 … 12: always shows first, last and the neighbours of the current page. */
 function pageList(page: number, total: number): (number | "gap")[] {
   if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
   const pages = new Set([1, total, page - 1, page, page + 1]);
@@ -27,7 +27,7 @@ function pageList(page: number, total: number): (number | "gap")[] {
 }
 
 const NAV_BUTTON =
-  "grid place-items-center rounded-lg border border-line bg-overlay/[0.03] text-muted transition hover:border-accent/40 hover:text-ink disabled:pointer-events-none disabled:opacity-35";
+  "grid place-items-center rounded-md text-muted transition-colors hover:bg-overlay/[0.06] hover:text-ink disabled:pointer-events-none disabled:opacity-35";
 
 export function Pager({
   page,
@@ -45,13 +45,13 @@ export function Pager({
   if (variant === "compact") {
     if (totalPages <= 1) return null;
     return (
-      <nav aria-label="Pagination" className={clsx("flex items-center gap-1 font-mono text-[10.5px] text-muted", className)}>
-        {busy && <Loader2 className="size-3 animate-spin text-accent" aria-hidden />}
+      <nav aria-label="Pagination" className={clsx("flex items-center gap-0.5 text-[12px] text-muted", className)}>
+        {busy && <Loader2 className="mr-1 size-3 animate-spin" aria-hidden />}
         <button className={clsx(NAV_BUTTON, "size-6")} onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous page">
           <ChevronLeft className="size-3.5" />
         </button>
-        <span className="min-w-9 text-center tabular-nums" aria-live="polite">
-          {page}/{totalPages}
+        <span className="tnum min-w-9 text-center" aria-live="polite">
+          {page} / {totalPages}
         </span>
         <button className={clsx(NAV_BUTTON, "size-6")} onClick={() => go(page + 1)} disabled={page >= totalPages} aria-label="Next page">
           <ChevronRight className="size-3.5" />
@@ -64,22 +64,28 @@ export function Pager({
   const to = totalItems === undefined || !pageSize ? null : Math.min(page * pageSize, totalItems);
 
   return (
-    <nav
-      aria-label="Pagination"
-      className={clsx("flex flex-wrap items-center justify-between gap-3 font-mono text-xs text-muted", className)}
-    >
-      <span className="flex items-center gap-2" aria-live="polite">
-        {busy && <Loader2 className="size-3.5 animate-spin text-accent" aria-hidden />}
-        {from !== null && to !== null
-          ? totalItems === 0
-            ? `No ${itemLabel}`
-            : `Showing ${from}–${to} of ${totalItems} ${itemLabel}`
-          : `Page ${page} of ${totalPages}`}
+    <nav aria-label="Pagination" className={clsx("flex flex-wrap items-center justify-between gap-3 text-[12.5px] text-muted", className)}>
+      <span className="tnum flex items-center gap-2" aria-live="polite">
+        {busy && <Loader2 className="size-3.5 animate-spin" aria-hidden />}
+        {from !== null && to !== null ? (
+          totalItems === 0 ? (
+            `No ${itemLabel}`
+          ) : (
+            <>
+              <span className="text-ink">
+                {from}–{to}
+              </span>{" "}
+              of {totalItems} {itemLabel}
+            </>
+          )
+        ) : (
+          `Page ${page} of ${totalPages}`
+        )}
       </span>
 
       {totalPages > 1 && (
-        <div className="flex items-center gap-1">
-          <button className={clsx(NAV_BUTTON, "h-8 px-2")} onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous page">
+        <div className="flex items-center gap-0.5">
+          <button className={clsx(NAV_BUTTON, "size-8")} onClick={() => go(page - 1)} disabled={page <= 1} aria-label="Previous page">
             <ChevronLeft className="size-4" />
           </button>
           {pageList(page, totalPages).map((p, i) =>
@@ -94,22 +100,15 @@ export function Pager({
                 aria-label={`Page ${p}`}
                 aria-current={p === page ? "page" : undefined}
                 className={clsx(
-                  "h-8 min-w-8 rounded-lg px-2 tabular-nums transition",
-                  p === page
-                    ? "bg-accent/15 font-semibold text-accent shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--color-accent)_35%,transparent)]"
-                    : "text-muted hover:bg-overlay/[0.05] hover:text-ink",
+                  "tnum h-8 min-w-8 rounded-md px-2 transition-colors",
+                  p === page ? "bg-panel font-medium text-ink ring-1 ring-line-strong" : "text-muted hover:bg-overlay/[0.05] hover:text-ink",
                 )}
               >
                 {p}
               </button>
             ),
           )}
-          <button
-            className={clsx(NAV_BUTTON, "h-8 px-2")}
-            onClick={() => go(page + 1)}
-            disabled={page >= totalPages}
-            aria-label="Next page"
-          >
+          <button className={clsx(NAV_BUTTON, "size-8")} onClick={() => go(page + 1)} disabled={page >= totalPages} aria-label="Next page">
             <ChevronRight className="size-4" />
           </button>
         </div>

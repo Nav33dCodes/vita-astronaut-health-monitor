@@ -41,3 +41,22 @@ export function describeRange(t: Threshold): string {
   if (t.warningHigh !== null) return `≤ ${t.warningHigh} ${t.unit}`;
   return t.unit;
 }
+
+const SEVERITY_ORDER: HealthStatus[] = ["Unknown", "Nominal", "Caution", "Critical"];
+
+/** The more severe of two statuses. */
+export const worstStatus = (a: HealthStatus, b: HealthStatus): HealthStatus =>
+  SEVERITY_ORDER.indexOf(a) >= SEVERITY_ORDER.indexOf(b) ? a : b;
+
+/** Sort rank: critical first, no data last. */
+export const SEVERITY_RANK: Record<HealthStatus, number> = { Critical: 0, Caution: 1, Nominal: 2, Unknown: 3 };
+
+/** Classifies one metric of a reading against the published thresholds. */
+export function statusOf(metric: VitalMetric, reading: VitalSample | undefined, thresholds: Threshold[]): HealthStatus {
+  if (!reading) return "Unknown";
+  return classify(METRIC_VALUE[metric](reading), thresholds.find((t) => t.metric === metric));
+}
+
+/** Blood pressure is judged by the worse of systolic and diastolic. */
+export const bloodPressureStatus = (reading: VitalSample | undefined, thresholds: Threshold[]): HealthStatus =>
+  worstStatus(statusOf("SystolicPressure", reading, thresholds), statusOf("DiastolicPressure", reading, thresholds));

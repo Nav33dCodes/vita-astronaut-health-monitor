@@ -6,13 +6,13 @@ import Link from "next/link";
 import type { TelemetryEvent } from "@/lib/realtime/store";
 
 export const EVENT_META: Record<TelemetryEvent["kind"], { label: string; icon: LucideIcon; className: string }> = {
-  reading: { label: "Telemetry", icon: Activity, className: "text-accent" },
+  reading: { label: "Telemetry", icon: Activity, className: "text-faint" },
   "alert-raised": { label: "Alert", icon: BellPlus, className: "text-critical" },
-  "alert-updated": { label: "Alert update", icon: CheckCheck, className: "text-violet" },
+  "alert-updated": { label: "Alert update", icon: CheckCheck, className: "text-accent" },
   "alert-escalated": { label: "Escalation", icon: Siren, className: "text-critical" },
 };
 
-/** One-line human summary of an event — shared by the feed, the log table and CSV export. */
+/** One-line human summary of an event, shared by the feed, the log table and CSV export. */
 export function describeEvent(event: TelemetryEvent): string {
   switch (event.kind) {
     case "reading": {
@@ -24,7 +24,7 @@ export function describeEvent(event: TelemetryEvent): string {
     case "alert-updated":
       return `${event.alert.status}: ${event.alert.message}`;
     case "alert-escalated":
-      return `Escalated to L${event.alert.escalationLevel} — unacknowledged: ${event.alert.message}`;
+      return `Escalated to L${event.alert.escalationLevel}, unacknowledged: ${event.alert.message}`;
   }
 }
 
@@ -32,36 +32,48 @@ export const formatClock = (at: number) =>
   new Date(at).toLocaleTimeString("en-GB", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
 /** Compact streaming feed for dashboards. */
-export function EventFeed({ events, limit = 8 }: { events: TelemetryEvent[]; limit?: number }) {
+export function EventFeed({
+  events,
+  limit = 8,
+  onSelectAstronaut,
+}: {
+  events: TelemetryEvent[];
+  limit?: number;
+  onSelectAstronaut?: (id: string) => void;
+}) {
   if (events.length === 0) {
     return (
-      <p className="py-8 text-center font-mono text-[11px] text-faint">Listening for telemetry on the uplink…</p>
+      <div className="grid h-full min-h-32 place-items-center text-center text-[13px] text-muted">
+        <span className="flex items-center gap-2">
+          <span className="size-1.5 animate-blink rounded-full bg-faint" aria-hidden />
+          Listening for telemetry…
+        </span>
+      </div>
     );
   }
 
   return (
-    <ol className="space-y-1" aria-live="polite" aria-relevant="additions">
+    <ol className="space-y-px" aria-live="polite" aria-relevant="additions">
       {events.slice(0, limit).map((event) => {
         const meta = EVENT_META[event.kind];
-        const isAlert = event.kind === "alert-raised" || event.kind === "alert-escalated";
+        const isAlert = event.kind !== "reading";
+        const name = onSelectAstronaut ? (
+          <button onClick={() => onSelectAstronaut(event.astronautId)} className="font-medium text-ink hover:underline">
+            {event.astronautName}
+          </button>
+        ) : (
+          <Link href={`/crew/${event.astronautId}`} className="font-medium text-ink hover:underline">
+            {event.astronautName}
+          </Link>
+        );
         return (
-          <li
-            key={event.id}
-            className={clsx(
-              "flex animate-fade-up items-start gap-2.5 rounded-lg px-2 py-1.5",
-              isAlert && "bg-critical/[0.06]",
-            )}
-          >
-            <meta.icon aria-hidden className={clsx("mt-0.5 size-3.5 shrink-0", meta.className)} />
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-xs text-ink">
-                <Link href={`/crew/${event.astronautId}`} className="font-medium hover:text-accent">
-                  {event.astronautName}
-                </Link>
-                <span className="text-muted"> — {describeEvent(event)}</span>
-              </p>
-            </div>
-            <time className="shrink-0 font-mono text-[10px] text-faint">{formatClock(event.at)}</time>
+          <li key={event.id} className="flex animate-fade-up items-center gap-3 py-1.5">
+            <time className="tnum w-14 shrink-0 font-mono text-[11.5px] text-faint">{formatClock(event.at)}</time>
+            <meta.icon aria-hidden className={clsx("size-3.5 shrink-0", meta.className)} />
+            <p className="min-w-0 flex-1 truncate text-[13px]">
+              {name}
+              <span className={clsx(isAlert ? "text-ink" : "text-muted")}> {describeEvent(event)}</span>
+            </p>
           </li>
         );
       })}

@@ -30,7 +30,8 @@ internal static class PdfKit
     {
         container.Text(text =>
         {
-            text.Span(Brand).FontSize(size).Bold().LetterSpacing(0.32f).FontColor(C(Ink));
+            text.Span(Brand[..^1]).FontSize(size).Bold().LetterSpacing(0.32f).FontColor(C(Ink));
+            text.Span(Brand[^1..]).FontSize(size).Bold().FontColor(C(Ink));
             text.Span(".").FontSize(size).Bold().FontColor(C(Accent));
         });
     }
@@ -112,6 +113,19 @@ internal static class PdfKit
             {
                 row.AutoItem().AlignBottom().Text(hint).FontSize(7.3f).FontColor(C(Muted));
             }
+        });
+    }
+
+    /// <summary>
+    /// A numbered section whose heading always stays with the start of its content: if less than
+    /// <paramref name="minSpace"/> points remain on the page, the whole section moves to the next one.
+    /// </summary>
+    public static void Section(ColumnDescriptor column, int number, string title, string? hint, Action<IContainer> content, float minSpace = 150)
+    {
+        column.Item().EnsureSpace(minSpace).Column(inner =>
+        {
+            inner.Item().Element(c => Section(c, number, title, hint));
+            inner.Item().Element(content);
         });
     }
 

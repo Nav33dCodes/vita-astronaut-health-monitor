@@ -50,28 +50,22 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
 
             column.Item().PaddingTop(12).Element(StatusStrip);
 
-            column.Item().Element(c => Section(c, ++section, "Latest vitals",
-                a.LatestReading is { } r ? $"recorded {Utc(r.RecordedAtUtc)}" : null));
-            column.Item().Element(LatestVitals);
+            Section(column, ++section, "Latest vitals",
+                a.LatestReading is { } r ? $"recorded {Utc(r.RecordedAtUtc)}" : null, LatestVitals);
 
             if (report.Hazards is { } hazards)
             {
-                column.Item().Element(c => Section(c, ++section, "Five hazards of spaceflight", "NASA Human Research Program"));
-                column.Item().Element(c => HazardsTable(c, hazards));
+                Section(column, ++section, "Five hazards of spaceflight", "NASA Human Research Program", c => HazardsTable(c, hazards));
                 column.Item().PaddingTop(8).Element(c => RadiationAndSleep(c, hazards));
             }
 
-            column.Item().Element(c => Section(c, ++section, "Trends", $"last {report.WindowHours} h · shaded band is the safe range"));
-            column.Item().Element(Charts);
+            Section(column, ++section, "Trends", $"last {report.WindowHours} h · shaded band is the safe range", Charts);
 
-            column.Item().Element(c => Section(c, ++section, "Statistics", $"last {report.WindowHours} h"));
-            column.Item().Element(StatisticsTable);
+            Section(column, ++section, "Statistics", $"last {report.WindowHours} h", StatisticsTable);
 
-            column.Item().Element(c => Section(c, ++section, "Early warning assessment", "adapted NEWS2 · trends over the last 60 min"));
-            column.Item().Element(EarlyWarning);
+            Section(column, ++section, "Early warning assessment", "adapted NEWS2 · trends over the last 60 min", EarlyWarning);
 
-            column.Item().Element(c => Section(c, ++section, "Alert history", "most recent 25"));
-            column.Item().Element(AlertHistory);
+            Section(column, ++section, "Alert history", "most recent 25", AlertHistory);
         });
 
         page.Footer().Element(c => Footer(c, Title));
@@ -91,7 +85,7 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
             {
                 column.Item().Text("Health status").FontSize(7).Medium().FontColor(C(Muted));
                 column.Item().PaddingTop(5).Element(p => Pill(p, ReportHazards.StatusLabel(a.HealthStatus), ToneOf(a.HealthStatus)));
-                column.Item().PaddingTop(4).Text("Follows the most severe unresolved alert").FontSize(6.8f).FontColor(C(Muted));
+                column.Item().PaddingTop(4).Text("Most severe open alert").FontSize(6.8f).FontColor(C(Muted));
             }));
             row.RelativeItem().Element(c => Kpi(c, "Early warning score",
                 assessment.Score is { } score ? $"{score} / {EarlyWarningScore.MaxScore}" : "—",

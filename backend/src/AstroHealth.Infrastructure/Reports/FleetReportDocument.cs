@@ -49,29 +49,23 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
                     ("Classification", Classification)
                 ]));
 
-            column.Item().Element(c => Section(c, ++section, "Summary"));
-            column.Item().Element(Summary);
+            Section(column, ++section, "Summary", null, Summary);
 
             if (report.Hazards is { } hazards)
             {
-                column.Item().Element(c => Section(c, ++section, "Five hazards of spaceflight", "NASA Human Research Program"));
-                column.Item().Element(c => HazardsTable(c, hazards));
+                Section(column, ++section, "Five hazards of spaceflight", "NASA Human Research Program", c => HazardsTable(c, hazards));
                 if (hazards.Missions.Count > 0)
                 {
-                    column.Item().Element(c => Section(c, ++section, "Cabin environment", "latest reading per spacecraft"));
-                    column.Item().Element(c => CabinTable(c, hazards));
+                    Section(column, ++section, "Cabin environment", "latest reading per spacecraft", c => CabinTable(c, hazards));
                 }
             }
 
-            column.Item().Element(c => Section(c, ++section, "Crew status", $"{report.Crew.Count} crew · most severe first"));
-            column.Item().Element(CrewTable);
+            Section(column, ++section, "Crew status", $"{report.Crew.Count} crew · most severe first", CrewTable);
 
-            column.Item().Element(c => Section(c, ++section, "Open alerts",
-                report.OpenAlerts.Count > MaxAlertRows ? $"{MaxAlertRows} most urgent of {report.OpenAlerts.Count}" : "most urgent first"));
-            column.Item().Element(AlertsTable);
+            Section(column, ++section, "Open alerts",
+                report.OpenAlerts.Count > MaxAlertRows ? $"{MaxAlertRows} most urgent of {report.OpenAlerts.Count}" : "most urgent first", AlertsTable);
 
-            column.Item().Element(c => Section(c, ++section, "Missions"));
-            column.Item().Element(MissionsTable);
+            Section(column, ++section, "Missions", null, MissionsTable);
         });
 
         page.Footer().Element(c => Footer(c, Title));
@@ -84,12 +78,12 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
         {
             row.Spacing(8);
             row.RelativeItem().Element(c => Kpi(c, "Crew health", $"{s.CrewHealth.Nominal} of {s.TotalCrew}", Tone.Neutral,
-                $"nominal · {s.CrewHealth.Critical} critical · {s.CrewHealth.Caution} caution"));
+                "nominal"));
             row.RelativeItem().Element(c => Kpi(c, "Open alerts", s.OpenAlerts.ToString(),
                 s.OpenCriticalAlerts > 0 ? Tone.Critical : s.OpenAlerts > 0 ? Tone.Caution : Tone.Neutral,
                 $"{s.OpenCriticalAlerts} critical"));
             row.RelativeItem().Element(c => Kpi(c, "Escalated", s.EscalatedAlerts.ToString(),
-                s.EscalatedAlerts > 0 ? Tone.Critical : Tone.Neutral, "awaiting acknowledgement"));
+                s.EscalatedAlerts > 0 ? Tone.Critical : Tone.Neutral, "unacknowledged"));
             row.RelativeItem().Element(c => Kpi(c, "Missions in flight", s.ActiveMissions.ToString(), Tone.Neutral,
                 $"{report.Missions.Count} on the manifest"));
             row.RelativeItem().Element(c => Kpi(c, "Readings, 24 h", s.ReadingsLast24Hours.ToString("N0"), Tone.Neutral, "telemetry samples"));

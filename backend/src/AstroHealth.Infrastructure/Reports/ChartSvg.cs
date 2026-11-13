@@ -70,7 +70,7 @@ internal static class ChartSvg
             path.Append(Invariant, $"{(i == 0 ? 'M' : 'L')}{X(points[i].At):0.##},{Y((double)points[i].Value):0.##} ");
         }
         var baseline = top + plotH;
-        svg.Append(Invariant, $"<path d=\"{path}L{X(points[^1].At):0.##},{baseline} L{X(points[0].At):0.##},{baseline} Z\" fill=\"{color}\" fill-opacity=\"0.10\"/>");
+        svg.Append(Invariant, $"<path d=\"{path}L{X(points[^1].At):0.##},{baseline} L{X(points[0].At):0.##},{baseline} Z\" fill=\"{color}\" fill-opacity=\"0.05\"/>");
         svg.Append(Invariant, $"<path d=\"{path}\" fill=\"none\" stroke=\"{color}\" stroke-width=\"1.4\" stroke-linejoin=\"round\" stroke-linecap=\"round\"/>");
 
         var last = points[^1];

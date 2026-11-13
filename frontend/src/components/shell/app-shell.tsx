@@ -13,6 +13,7 @@ import { NAV_ITEMS, isActivePath } from "@/lib/navigation";
 import { CommandPalette } from "./command-palette";
 import { LoadingBar } from "./loading-bar";
 import { ShortcutsDialog, useGlobalShortcuts } from "./shortcuts";
+import { MissionSwitcher } from "./mission-switcher";
 import { NavList, Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import { Wordmark } from "./wordmark";
@@ -29,7 +30,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-dvh">
-      <Sidebar />
+      <Sidebar onSearch={() => setPaletteOpen(true)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
         <TopBar onOpenPalette={() => setPaletteOpen(true)} onOpenNav={() => setNavOpen(true)} />
@@ -45,6 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="flex h-14 items-center px-5">
             <Wordmark />
           </div>
+          <MissionSwitcher />
           <Suspense fallback={<NavList pathname={null} />}>
             <DrawerNav onNavigate={() => setNavOpen(false)} />
           </Suspense>

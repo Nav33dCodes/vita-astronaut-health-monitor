@@ -17,6 +17,7 @@ import { useAstronauts, useMissions } from "@/lib/api/queries";
 import type { HealthStatus } from "@/lib/api/types";
 import { humanize, timeAgo } from "@/lib/format";
 import { useDebouncedValue } from "@/lib/hooks";
+import { setMissionScope, useMissionScope } from "@/lib/mission-scope";
 import { PAGE_SIZE } from "@/lib/prefetch";
 import { reports } from "@/lib/reports";
 import { CrewTableSkeleton } from "@/components/skeletons/page-skeletons";
@@ -40,7 +41,7 @@ const TD = "border-b border-line px-3 py-3 compact:py-2 first:pl-5 last:pr-5 gro
 export default function CrewPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [missionId, setMissionId] = useState("");
+  const missionId = useMissionScope() ?? "";
   const [status, setStatus] = useState<HealthStatus | undefined>();
   const [page, setPage] = useState(1);
   const [view, setView] = useState<View>("table");
@@ -90,7 +91,7 @@ export default function CrewPage() {
             className="pl-9"
           />
         </div>
-        <Select value={missionId} onChange={(e) => withReset(setMissionId)(e.target.value)} aria-label="Filter by mission" className="w-auto min-w-40">
+        <Select value={missionId} onChange={(e) => withReset((id: string) => setMissionScope(id || null))(e.target.value)} aria-label="Filter by mission" className="w-auto min-w-40">
           <option value="">All missions</option>
           {missions.data?.map((m) => (
             <option key={m.id} value={m.id}>

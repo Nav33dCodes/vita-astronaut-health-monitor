@@ -9,6 +9,7 @@ import { Pager } from "@/components/ui/pager";
 import { Button, Card, EmptyState, ErrorState, PageHeader, Segmented, Select } from "@/components/ui/primitives";
 import { useAstronauts, useMissions, useThresholds } from "@/lib/api/queries";
 import { useHydrated } from "@/lib/hooks";
+import { setMissionScope, useMissionScope } from "@/lib/mission-scope";
 import { useEventRate } from "@/lib/realtime/hooks";
 import { useLinkStatus } from "@/lib/realtime/store";
 import { usePagination } from "@/lib/use-pagination";
@@ -22,7 +23,8 @@ const TILES_PER_PAGE = 8;
 const CYCLE_SECONDS = 15;
 
 export default function LiveMonitorPage() {
-  const [missionId, setMissionId] = useState("");
+  // Mission filter = the app-wide mission focus (sidebar switcher).
+  const missionId = useMissionScope() ?? "";
   const [sort, setSort] = useState<Sort>("severity");
   const [scope, setScope] = useState<Scope>("active");
   const [selected, setSelected] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export default function LiveMonitorPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Select value={missionId} onChange={(e) => setMissionId(e.target.value)} aria-label="Filter by mission" className="w-auto min-w-40">
+        <Select value={missionId} onChange={(e) => setMissionScope(e.target.value || null)} aria-label="Filter by mission" className="w-auto min-w-40">
           <option value="">All missions</option>
           {missions.data?.map((m) => (
             <option key={m.id} value={m.id}>

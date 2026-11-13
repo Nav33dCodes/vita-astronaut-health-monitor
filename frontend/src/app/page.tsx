@@ -20,6 +20,7 @@ import { Card, CardTitle, Count, EmptyState, ErrorState, PageHeader, Segmented, 
 import { useAlerts, useAstronauts, useDashboard, useFleetAssessments, useHazards, useMissions, useThresholds } from "@/lib/api/queries";
 import type { DashboardSummary, HealthStatus } from "@/lib/api/types";
 import { useHydrated } from "@/lib/hooks";
+import { useMissionScope } from "@/lib/mission-scope";
 import { PAGE_SIZE } from "@/lib/prefetch";
 import { useEventRate, useEventRateSeries, useFleetReadings } from "@/lib/realtime/hooks";
 import { useEventLog } from "@/lib/realtime/store";
@@ -33,7 +34,9 @@ export default function OverviewPage() {
   // The top bar shares these queries and can finish before this page hydrates: render the
   // server's (loading) markup first, then the data.
   const hydrated = useHydrated();
-  const active = missions.data?.filter((m) => m.status === "Active") ?? [];
+  const scope = useMissionScope();
+  const focused = missions.data?.find((m) => m.id === scope);
+  const active = focused ? [focused] : (missions.data?.filter((m) => m.status === "Active") ?? []);
 
   return (
     <>
@@ -64,6 +67,15 @@ function Overview({ summary }: { summary: DashboardSummary }) {
   const crew = useAstronauts({ pageSize: 100 });
   const thresholds = useThresholds();
   const { byAstronaut } = useFleetReadings();
+  const scope = useMissionScope();
+  const scopedCrew = useMemo(
+    () => (scope ? (crew.data?.items ?? []).filter((a) => a.missionId === scope) : (crew.data?.items ?? [])),
+    [crew.data, scope],
+  );
+  const scopedReadings = useMemo(
+    () => (scope ? new Map([...byAstronaut].filter(([id]) => scopedCrew.some((a) => a.id === id))) : byAstronaut),
+    [byAstronaut, scope, scopedCrew],
+  );
   const attention = summary.crewHealth.critical + summary.crewHealth.caution;
 
   return (
@@ -106,9 +118,9 @@ function Overview({ summary }: { summary: DashboardSummary }) {
           </div>
         ) : (
           <CrewVitalsTable
-            crew={crew.data.items}
+            crew={scopedCrew}
             thresholds={thresholds.data ?? []}
-            readings={byAstronaut}
+            readings={scopedReadings}
             onSelect={setSelected}
             attentionOnly={attentionOnly}
           />
@@ -119,7 +131,7 @@ function Overview({ summary }: { summary: DashboardSummary }) {
         <ActionQueue onSelectAstronaut={setSelected} />
         <Card className="flex flex-col lg:col-span-7">
           <CardTitle description="Crew average and spread over the last minutes, against the safe range.">Fleet trend</CardTitle>
-          <FleetTrend readings={byAstronaut} thresholds={thresholds.data ?? []} />
+          <FleetTrend readings={scopedReadings} thresholds={thresholds.data ?? []} />
         </Card>
       </div>
 

@@ -17,6 +17,7 @@ import type { CrewHazards, MissionHazards, SpaceHazard } from "@/lib/api/types";
 import { DESTINATION_LABELS } from "@/lib/format";
 import { HAZARDS, HAZARD_META, formatSignalDelay } from "@/lib/hazards";
 import { useHydrated } from "@/lib/hooks";
+import { setMissionScope, useMissionScope } from "@/lib/mission-scope";
 import { HazardsBodySkeleton } from "@/components/skeletons/page-skeletons";
 
 export default function HazardsPage() {
@@ -24,7 +25,9 @@ export default function HazardsPage() {
   const hydrated = useHydrated();
   const [selected, setSelected] = useState<{ astronautId: string; hazard: SpaceHazard } | null>(null);
 
-  const crew = hazards.data?.missions.flatMap((m) => m.crew.map((c) => ({ ...c, mission: m })));
+  const scope = useMissionScope();
+  const missions = hazards.data?.missions.filter((m) => !scope || m.missionId === scope) ?? [];
+  const crew = missions.flatMap((m) => m.crew.map((c) => ({ ...c, mission: m })));
   const selection = selected && crew?.find((c) => c.astronautId === selected.astronautId);
 
   return (
@@ -49,14 +52,25 @@ export default function HazardsPage() {
         <HazardsBodySkeleton />
       ) : hazards.isError ? (
         <ErrorState error={hazards.error} onRetry={() => hazards.refetch()} />
-      ) : hazards.data.missions.length === 0 ? (
+      ) : missions.length === 0 ? (
         <Card>
-          <EmptyState title="No mission in flight">Hazards are assessed for crew on active missions.</EmptyState>
+          <EmptyState title={scope ? "The focused mission is not in flight" : "No mission in flight"}>
+            {scope ? (
+              <>
+                Hazards are assessed for active missions.{" "}
+                <button onClick={() => setMissionScope(null)} className="font-medium text-accent hover:underline">
+                  Show all missions
+                </button>
+              </>
+            ) : (
+              "Hazards are assessed for crew on active missions."
+            )}
+          </EmptyState>
         </Card>
       ) : (
         <div className="space-y-4">
           <HazardSummaryRow summary={hazards.data.summary} />
-          {hazards.data.missions.map((mission) => (
+          {missions.map((mission) => (
             <MissionSection key={mission.missionId} mission={mission} onSelect={(astronautId, hazard) => setSelected({ astronautId, hazard })} />
           ))}
           <AboutHazards />

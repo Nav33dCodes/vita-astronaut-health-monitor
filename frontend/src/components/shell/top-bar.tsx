@@ -9,6 +9,7 @@ import { Suspense } from "react";
 import { IconButton, Kbd } from "@/components/ui/primitives";
 import { queries, useDashboard, useHazards } from "@/lib/api/queries";
 import { formatSignalDelay } from "@/lib/hazards";
+import { useMissionScope } from "@/lib/mission-scope";
 import { useHydrated } from "@/lib/hooks";
 import { navItemFor } from "@/lib/navigation";
 import { useOnline } from "@/lib/online";
@@ -130,7 +131,9 @@ function LinkPill() {
 function SignalDelay() {
   const hazards = useHazards();
   const hydrated = useHydrated();
-  const mission = hydrated ? hazards.data?.missions[0] : undefined;
+  const scope = useMissionScope();
+  const missions = hazards.data?.missions ?? [];
+  const mission = hydrated ? (missions.find((m) => m.missionId === scope) ?? missions[0]) : undefined;
   if (!mission) return null;
   const independent = mission.communicationDelay.autonomy === "EarthIndependent";
   return (

@@ -9,12 +9,13 @@ import { CrewAvatar } from "@/components/ui/avatar";
 import { MissionStatusBadge } from "@/components/ui/badges";
 import { Pager } from "@/components/ui/pager";
 import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
-import { Button, Card, EmptyState, ErrorState, PageHeader, Select, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, EmptyState, ErrorState, PageHeader, Select } from "@/components/ui/primitives";
 import { useAstronauts, useChangeMissionStatus, useDeleteMission, useMissions } from "@/lib/api/queries";
 import type { Mission, MissionDestination, MissionStatus } from "@/lib/api/types";
 import { DESTINATION_LABELS, formatDate } from "@/lib/format";
 import { formatMet, useNow } from "@/lib/time";
 import { usePagination } from "@/lib/use-pagination";
+import { MissionsGridSkeleton } from "@/components/skeletons/page-skeletons";
 
 const DESTINATION_ICONS: Record<MissionDestination, typeof Globe2> = {
   LowEarthOrbit: Globe2,
@@ -46,11 +47,7 @@ export default function MissionsPage() {
       />
 
       {missions.isPending ? (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-64 rounded-[var(--radius-card)]" />
-          ))}
-        </div>
+        <MissionsGridSkeleton />
       ) : missions.isError ? (
         <ErrorState error={missions.error} onRetry={() => missions.refetch()} />
       ) : missions.data.length === 0 ? (

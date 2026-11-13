@@ -10,6 +10,7 @@ import { useAssessment, useEarlyWarningScoring, useFleetAssessments } from "@/li
 import type { Trend } from "@/lib/api/types";
 import { METRIC_LABELS } from "@/lib/format";
 import { usePagination } from "@/lib/use-pagination";
+import { SkeletonList, SkeletonText } from "@/components/ui/skeleton";
 
 /** Compact trend chip: arrow, metric, rate and (if any) time until the safe limit is crossed. */
 export function TrendChip({ trend }: { trend: Trend }) {
@@ -42,7 +43,7 @@ export function TrendChip({ trend }: { trend: Trend }) {
 export function TrendWatch({ onSelect, limit = 5 }: { onSelect?: (id: string) => void; limit?: number }) {
   const fleet = useFleetAssessments();
 
-  if (fleet.isPending) return <Skeleton className="h-48" />;
+  if (fleet.isPending) return <SkeletonList rows={3} actions={false} />;
   if (fleet.isError) return <ErrorState error={fleet.error} onRetry={() => fleet.refetch()} />;
 
   const soonest = (trends: Trend[]) => Math.min(...trends.map((t) => t.minutesToLimit ?? Infinity));
@@ -86,7 +87,7 @@ export function EarlyWarningBoard({ pageSize = 5 }: { pageSize?: number }) {
   const { page, setPage, totalPages, pageItems } = usePagination(fleet.data ?? [], pageSize);
   const max = scoring.data?.maxScore ?? 15;
 
-  if (fleet.isPending) return <Skeleton className="h-56" />;
+  if (fleet.isPending) return <SkeletonList rows={5} actions={false} />;
   if (fleet.isError) return <ErrorState error={fleet.error} onRetry={() => fleet.refetch()} />;
   if (fleet.data.length === 0) return <EmptyState title="No telemetry to assess yet" />;
 
@@ -127,7 +128,13 @@ export function AssessmentPanel({ astronautId }: { astronautId: string }) {
   const assessment = useAssessment(astronautId);
   const scoring = useEarlyWarningScoring();
 
-  if (assessment.isPending) return <Skeleton className="h-64" />;
+  if (assessment.isPending)
+    return (
+      <div className="space-y-5">
+        <Skeleton className="h-10 w-24" />
+        <SkeletonText lines={5} />
+      </div>
+    );
   if (assessment.isError) return <ErrorState error={assessment.error} onRetry={() => assessment.refetch()} />;
 
   const a = assessment.data;

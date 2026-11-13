@@ -288,9 +288,8 @@ export function Segmented<T extends string | number | boolean | undefined>({
 
 // ---- Feedback -----------------------------------------------------------------
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={clsx("animate-pulse rounded-lg bg-overlay/[0.05]", className)} />;
-}
+/** Re-exported so existing imports keep working; see components/ui/skeleton.tsx for the kit. */
+export { Skeleton } from "./skeleton";
 
 export function Spinner({ label = "Loading…" }: { label?: string }) {
   return (

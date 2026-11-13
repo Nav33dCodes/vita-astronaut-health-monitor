@@ -10,12 +10,13 @@ import { HEALTH_COLOR, HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
 import { RangeBar, Sparkline } from "@/components/ui/data-viz";
 import { Drawer } from "@/components/ui/dialog";
 import { LiveValue } from "@/components/ui/live-value";
-import { EmptyState, Skeleton } from "@/components/ui/primitives";
+import { EmptyState } from "@/components/ui/primitives";
 import { useAlerts, useAstronauts, useThresholds } from "@/lib/api/queries";
 import type { Threshold, VitalReading } from "@/lib/api/types";
 import { humanize, timeAgo } from "@/lib/format";
 import { useLiveVitals } from "@/lib/realtime/hooks";
 import { METRIC_VALUE, classify, describeRange } from "@/lib/vitals";
+import { SkeletonList, SkeletonText } from "@/components/ui/skeleton";
 
 /**
  * Side sheet with everything a flight surgeon needs about one person, without leaving the page:
@@ -56,7 +57,13 @@ function QuickViewBody({ astronautId }: { astronautId: string }) {
   const latest = readings.at(-1);
   const alerts = useAlerts({ astronautId, status: "Open", page: 1, pageSize: 5 });
 
-  if (!a) return <Skeleton className="m-5 h-64" />;
+  if (!a)
+    return (
+      <div className="space-y-4 p-5">
+        <SkeletonText lines={3} />
+        <SkeletonText lines={6} />
+      </div>
+    );
 
   return (
     <div className="divide-y divide-line">
@@ -95,7 +102,7 @@ function QuickViewBody({ astronautId }: { astronautId: string }) {
       <section className="px-5 py-5">
         <h3 className="mb-3 text-[13px] font-semibold text-ink">Open alerts</h3>
         {alerts.isPending ? (
-          <Skeleton className="h-24" />
+          <SkeletonList rows={2} actions={false} />
         ) : alerts.data?.items.length ? (
           <AlertList alerts={alerts.data.items} showAstronaut={false} compact />
         ) : (

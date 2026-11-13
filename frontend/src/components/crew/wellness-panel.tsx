@@ -5,10 +5,11 @@ import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { confirm } from "@/lib/notify";
 import { HEALTH_LABEL, HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
-import { Button, Card, CardTitle, EmptyState, ErrorState, Field, Input, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, CardTitle, EmptyState, ErrorState, Field, Input } from "@/components/ui/primitives";
 import { useWellness, useWellnessCheckIn } from "@/lib/api/queries";
 import type { Wellness, WellnessEntry } from "@/lib/api/types";
 import { useThemeColors } from "@/lib/theme";
+import { SkeletonCard, SkeletonChart, SkeletonGroup, SkeletonText } from "@/components/ui/skeleton";
 
 const SLEEP_CAUTION = 6;
 const SLEEP_CRITICAL = 5;
@@ -22,7 +23,17 @@ const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateStrin
 export function WellnessPanel({ astronautId, name }: { astronautId: string; name: string }) {
   const wellness = useWellness(astronautId, 14);
 
-  if (wellness.isPending) return <Skeleton className="h-96 rounded-[var(--radius-card)]" />;
+  if (wellness.isPending)
+    return (
+      <SkeletonGroup label="Loading wellness" className="grid gap-4 lg:grid-cols-12">
+        <SkeletonCard className="lg:col-span-8">
+          <SkeletonChart height={224} />
+        </SkeletonCard>
+        <SkeletonCard className="lg:col-span-4">
+          <SkeletonText lines={6} />
+        </SkeletonCard>
+      </SkeletonGroup>
+    );
   if (wellness.isError) return <ErrorState error={wellness.error} onRetry={() => wellness.refetch()} />;
 
   const w = wellness.data;

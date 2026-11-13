@@ -93,6 +93,9 @@
     to { transform: none; opacity: 1; }
   }
   /* Value-changed highlight for live table cells. */
+  @keyframes shimmer {
+    to { transform: translateX(100%); }
+  }
   @keyframes flash {
     from { background-color: color-mix(in srgb, var(--color-accent) 14%, transparent); }
     to { background-color: transparent; }
@@ -102,6 +105,8 @@
 :root {
   --shadow-sm: 0 1px 2px 0 rgb(17 17 20 / 0.04);
   --shadow-pop: 0 1px 2px rgb(17 17 20 / 0.05), 0 12px 32px -8px rgb(17 17 20 / 0.16);
+  --skeleton-base: #efeff2;
+  --skeleton-shine: rgb(255 255 255 / 0.7);
   color-scheme: light;
 }
 
@@ -127,6 +132,8 @@
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
   --shadow-pop: 0 0 0 1px rgb(255 255 255 / 0.04), 0 16px 40px -8px rgb(0 0 0 / 0.6);
+  --skeleton-base: #1b1b20;
+  --skeleton-shine: rgb(255 255 255 / 0.04);
   color-scheme: dark;
 }
 
@@ -236,6 +243,28 @@ body {
     background-repeat: no-repeat;
     background-position: right 10px center;
     background-size: 12px;
+  }
+
+  /*
+   * Skeletons: a quiet shimmer sweep. Groups fade in only after 150ms, so fast loads show
+   * nothing at all (no flash), while the reserved space keeps the layout from shifting.
+   */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: var(--skeleton-base);
+    border-radius: 6px;
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--skeleton-shine), transparent);
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  .skeleton-reveal {
+    animation: fade-in 0.25s ease-out 0.15s both;
   }
 
   /* Native <dialog> open/close, consistent everywhere. */

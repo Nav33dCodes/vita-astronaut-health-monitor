@@ -9,12 +9,13 @@ import { CrewQuickView } from "@/components/crew/crew-quick-view";
 import { Dialog } from "@/components/ui/dialog";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
-import { Button, Card, Checkbox, EmptyState, ErrorState, Field, Input, PageHeader, Segmented, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, Checkbox, EmptyState, ErrorState, Field, Input, PageHeader, Segmented } from "@/components/ui/primitives";
 import { useAcknowledgeAlert, useAlerts, useDashboard, useResolveAlert } from "@/lib/api/queries";
 import type { AlertSeverity, AlertStatus } from "@/lib/api/types";
 import { useHydrated } from "@/lib/hooks";
 import { PAGE_SIZE } from "@/lib/prefetch";
 import { reports } from "@/lib/reports";
+import { SkeletonGroup, SkeletonList } from "@/components/ui/skeleton";
 
 const SEVERITY_OPTIONS: { value: AlertSeverity | undefined; label: string }[] = [
   { value: undefined, label: "Any severity" },
@@ -108,11 +109,9 @@ export default function AlertsPage() {
 
         <div className={clsx("px-5 transition-opacity", alerts.isPlaceholderData && "opacity-60")}>
           {alerts.isPending ? (
-            <div className="space-y-2 py-4">
-              {Array.from({ length: 6 }, (_, i) => (
-                <Skeleton key={i} className="h-12" />
-              ))}
-            </div>
+            <SkeletonGroup label="Loading alerts">
+              <SkeletonList rows={6} checkbox />
+            </SkeletonGroup>
           ) : alerts.isError ? (
             <div className="py-4">
               <ErrorState error={alerts.error} onRetry={() => alerts.refetch()} />

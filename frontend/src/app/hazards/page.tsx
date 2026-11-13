@@ -11,12 +11,13 @@ import { OnboardChecklist } from "@/components/hazards/onboard-actions";
 import { RadiationBudgetBar } from "@/components/hazards/radiation-budget";
 import { HEALTH_LABEL, HEALTH_TEXT, StatusDot } from "@/components/ui/badges";
 import { Drawer } from "@/components/ui/dialog";
-import { Card, CardTitle, EmptyState, ErrorState, PageHeader, Skeleton } from "@/components/ui/primitives";
+import { Card, CardTitle, EmptyState, ErrorState, PageHeader } from "@/components/ui/primitives";
 import { useHazards } from "@/lib/api/queries";
 import type { CrewHazards, MissionHazards, SpaceHazard } from "@/lib/api/types";
 import { DESTINATION_LABELS } from "@/lib/format";
 import { HAZARDS, HAZARD_META, formatSignalDelay } from "@/lib/hazards";
 import { useHydrated } from "@/lib/hooks";
+import { HazardsBodySkeleton } from "@/components/skeletons/page-skeletons";
 
 export default function HazardsPage() {
   const hazards = useHazards();
@@ -45,10 +46,7 @@ export default function HazardsPage() {
       />
 
       {hazards.isPending || !hydrated ? (
-        <div className="space-y-4">
-          <Skeleton className="h-[116px] rounded-[var(--radius-card)]" />
-          <Skeleton className="h-[520px] rounded-[var(--radius-card)]" />
-        </div>
+        <HazardsBodySkeleton />
       ) : hazards.isError ? (
         <ErrorState error={hazards.error} onRetry={() => hazards.refetch()} />
       ) : hazards.data.missions.length === 0 ? (

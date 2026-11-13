@@ -24,6 +24,8 @@ import { PAGE_SIZE } from "@/lib/prefetch";
 import { useEventRate, useEventRateSeries, useFleetReadings } from "@/lib/realtime/hooks";
 import { useEventLog } from "@/lib/realtime/store";
 import { reports } from "@/lib/reports";
+import { HazardStripSkeleton, OverviewBodySkeleton } from "@/components/skeletons/page-skeletons";
+import { SkeletonGroup, SkeletonList, SkeletonTable } from "@/components/ui/skeleton";
 
 export default function OverviewPage() {
   const dashboard = useDashboard();
@@ -46,7 +48,7 @@ export default function OverviewPage() {
         action={<ExportMenu options={[reports.fleetPdf(), reports.crewExcel()]} />}
       />
       {dashboard.isPending || !hydrated ? (
-        <OverviewSkeleton />
+        <OverviewBodySkeleton />
       ) : dashboard.isError ? (
         <ErrorState error={dashboard.error} onRetry={() => dashboard.refetch()} />
       ) : (
@@ -95,11 +97,9 @@ function Overview({ summary }: { summary: DashboardSummary }) {
           Crew vitals
         </CardTitle>
         {crew.isPending || thresholds.isPending ? (
-          <div className="space-y-2 px-5 pb-5">
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} className="h-10" />
-            ))}
-          </div>
+          <SkeletonGroup label="Loading crew vitals">
+            <SkeletonTable rows={6} columns={8} />
+          </SkeletonGroup>
         ) : crew.isError ? (
           <div className="p-5">
             <ErrorState error={crew.error} onRetry={() => crew.refetch()} />
@@ -158,7 +158,13 @@ function HazardsStrip() {
         <h2 className="text-[13.5px] font-semibold text-ink">Five hazards of spaceflight</h2>
         <CardLink href="/hazards">Details</CardLink>
       </div>
-      {hazards.data ? <HazardSummaryRow summary={hazards.data.summary} /> : <Skeleton className="h-[116px] rounded-[var(--radius-card)]" />}
+      {hazards.data ? (
+        <HazardSummaryRow summary={hazards.data.summary} />
+      ) : (
+        <SkeletonGroup label="Loading hazards">
+          <HazardStripSkeleton />
+        </SkeletonGroup>
+      )}
     </section>
   );
 }
@@ -328,11 +334,9 @@ function ActionQueue({ onSelectAstronaut }: { onSelectAstronaut: (id: string) =>
       </CardTitle>
       <div className={clsx("-my-3 min-h-0 flex-1 transition-opacity", alerts.isPlaceholderData && "opacity-60")}>
         {alerts.isPending ? (
-          <div className="space-y-2 py-3">
-            {Array.from({ length: 4 }, (_, i) => (
-              <Skeleton key={i} className="h-12" />
-            ))}
-          </div>
+          <SkeletonGroup label="Loading alerts">
+            <SkeletonList rows={4} />
+          </SkeletonGroup>
         ) : alerts.data?.items.length ? (
           <AlertList alerts={alerts.data.items} compact onSelectAstronaut={onSelectAstronaut} />
         ) : (
@@ -377,19 +381,3 @@ function ActivityCard({ onSelectAstronaut }: { onSelectAstronaut: (id: string) =
   );
 }
 
-function OverviewSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {Array.from({ length: 4 }, (_, i) => (
-          <Skeleton key={i} className="h-[132px] rounded-[var(--radius-card)]" />
-        ))}
-      </div>
-      <Skeleton className="h-[420px] rounded-[var(--radius-card)]" />
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Skeleton className="h-[320px] rounded-[var(--radius-card)] lg:col-span-5" />
-        <Skeleton className="h-[320px] rounded-[var(--radius-card)] lg:col-span-7" />
-      </div>
-    </div>
-  );
-}

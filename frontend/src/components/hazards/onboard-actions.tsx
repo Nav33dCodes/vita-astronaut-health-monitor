@@ -3,14 +3,15 @@
 import { ListChecks } from "lucide-react";
 import { useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
-import { IconButton, Skeleton } from "@/components/ui/primitives";
+import { IconButton } from "@/components/ui/primitives";
 import { usePlaybook } from "@/lib/api/queries";
 import { HAZARD_META } from "@/lib/hazards";
+import { SkeletonText } from "@/components/ui/skeleton";
 
 /** Numbered onboard first-response checklist for one alert type (playbook key = metric name). */
 export function OnboardChecklist({ playbookKey }: { playbookKey: string }) {
   const playbook = usePlaybook();
-  if (playbook.isPending) return <Skeleton className="h-32" />;
+  if (playbook.isPending) return <SkeletonText lines={5} />;
 
   const entry = playbook.data?.find((e) => e.key === playbookKey);
   if (!entry) return <p className="text-[13px] text-muted">No onboard checklist for this alert type.</p>;

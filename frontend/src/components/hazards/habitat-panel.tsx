@@ -5,11 +5,12 @@ import { useMemo } from "react";
 import { HEALTH_COLOR, HEALTH_TEXT } from "@/components/ui/badges";
 import { Sparkline } from "@/components/ui/data-viz";
 import { LiveValue } from "@/components/ui/live-value";
-import { Skeleton } from "@/components/ui/primitives";
 import { useHabitatHistory, useHabitatThresholds } from "@/lib/api/queries";
 import type { HabitatReading, HabitatThreshold, HealthStatus } from "@/lib/api/types";
 import { HABITAT_SHORT, HABITAT_VALUE } from "@/lib/hazards";
 import { useLiveHabitat } from "@/lib/realtime/store";
+import { HabitatTilesSkeleton } from "@/components/skeletons/page-skeletons";
+import { SkeletonGroup } from "@/components/ui/skeleton";
 
 /** History from the API merged with readings pushed live, oldest first. */
 export function useHabitatSeries(missionId: string, minutes = 30): { readings: HabitatReading[]; isLoading: boolean } {
@@ -46,11 +47,9 @@ export function HabitatPanel({ missionId }: { missionId: string }) {
 
   if (isLoading || thresholds.isPending) {
     return (
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }, (_, i) => (
-          <Skeleton key={i} className="h-[104px]" />
-        ))}
-      </div>
+      <SkeletonGroup label="Loading cabin environment">
+        <HabitatTilesSkeleton />
+      </SkeletonGroup>
     );
   }
 

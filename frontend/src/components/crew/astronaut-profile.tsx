@@ -16,7 +16,7 @@ import { ConfirmDialog, Dialog } from "@/components/ui/dialog";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { LiveValue } from "@/components/ui/live-value";
 import { Pager } from "@/components/ui/pager";
-import { Button, Card, CardTitle, Count, EmptyState, ErrorState, IconButton, Segmented, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, CardTitle, Count, EmptyState, ErrorState, IconButton, Segmented } from "@/components/ui/primitives";
 import { useAlerts, useAstronaut, useDeleteAstronaut, useHazards, useThresholds, useVitalSeries, useVitalStats } from "@/lib/api/queries";
 import type { Alert, AstronautDetail, Threshold, VitalReading } from "@/lib/api/types";
 import { formatDate, humanize, timeAgo } from "@/lib/format";
@@ -27,6 +27,8 @@ import { METRIC_VALUE, classify, describeRange } from "@/lib/vitals";
 import { RecordVitalsForm } from "./record-vitals-form";
 import { WellnessPanel } from "./wellness-panel";
 import { VitalsChart } from "./vitals-chart";
+import { ProfileSkeleton } from "@/components/skeletons/page-skeletons";
+import { SkeletonChart, SkeletonList } from "@/components/ui/skeleton";
 
 const WINDOWS = [
   { value: 24, label: "24h" },
@@ -42,11 +44,7 @@ export function AstronautProfile() {
 
   if (astronaut.isPending) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-28 rounded-[var(--radius-card)]" />
-        <Skeleton className="h-10 w-80" />
-        <Skeleton className="h-96 rounded-[var(--radius-card)]" />
-      </div>
+      <ProfileSkeleton />
     );
   }
   if (astronaut.isError) {
@@ -176,7 +174,7 @@ function ProfileView({ astronaut: a }: { astronaut: AstronautDetail }) {
               Medical alert log {alerts.data && <Count>{alerts.data.totalCount}</Count>}
             </CardTitle>
             {alerts.isPending ? (
-              <Skeleton className="h-48" />
+              <SkeletonList rows={4} />
             ) : alerts.data?.items.length ? (
               <div className={clsx("-my-3 transition-opacity", alerts.isPlaceholderData && "opacity-60")}>
                 <AlertList alerts={alerts.data.items} showAstronaut={false} />
@@ -337,7 +335,7 @@ function TrendsTab({
         Vitals trend
       </CardTitle>
       {vitals.isPending ? (
-        <Skeleton className="h-80" />
+        <SkeletonChart height={320} />
       ) : vitals.isError ? (
         <ErrorState error={vitals.error} />
       ) : vitals.data.points.length === 0 ? (

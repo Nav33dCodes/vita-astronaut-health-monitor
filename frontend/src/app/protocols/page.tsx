@@ -6,6 +6,8 @@ import { Card, CardTitle, ErrorState, PageHeader, Skeleton } from "@/components/
 import { useEarlyWarningScoring, useHabitatThresholds, useSystemStatus, useThresholds } from "@/lib/api/queries";
 import type { EarlyWarningScoring, SpaceHazard, Threshold } from "@/lib/api/types";
 import { HAZARD_META } from "@/lib/hazards";
+import { ThresholdRowsSkeleton } from "@/components/skeletons/page-skeletons";
+import { SkeletonTable } from "@/components/ui/skeleton";
 
 export default function ProtocolsPage() {
   const thresholds = useThresholds();
@@ -27,7 +29,7 @@ export default function ProtocolsPage() {
         <Card className="lg:col-span-8">
           <CardTitle>Vital sign limits</CardTitle>
           {thresholds.isPending ? (
-            <Skeleton className="h-96" />
+            <ThresholdRowsSkeleton />
           ) : thresholds.isError ? (
             <ErrorState error={thresholds.error} onRetry={() => thresholds.refetch()} />
           ) : (
@@ -101,7 +103,7 @@ export default function ProtocolsPage() {
       <Card className="mt-4">
         <CardTitle description="Adapted from NEWS2 (Royal College of Physicians).">Early warning score</CardTitle>
         {scoring.isPending ? (
-          <Skeleton className="h-64" />
+          <SkeletonTable rows={6} columns={8} avatar={false} />
         ) : scoring.isError ? (
           <ErrorState error={scoring.error} onRetry={() => scoring.refetch()} />
         ) : (
@@ -112,7 +114,7 @@ export default function ProtocolsPage() {
       <Card className="mt-4">
         <CardTitle description="Shared by everyone aboard; the area radiation monitor is part of the cabin telemetry.">Cabin environment limits</CardTitle>
         {habitat.isPending ? (
-          <Skeleton className="h-72" />
+          <ThresholdRowsSkeleton rows={6} />
         ) : habitat.isError ? (
           <ErrorState error={habitat.error} onRetry={() => habitat.refetch()} />
         ) : (

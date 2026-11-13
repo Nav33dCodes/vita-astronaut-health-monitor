@@ -6,13 +6,14 @@ import { useEffect, useMemo, useState } from "react";
 import { CrewQuickView } from "@/components/crew/crew-quick-view";
 import { MonitorTile } from "@/components/monitor/monitor-tile";
 import { Pager } from "@/components/ui/pager";
-import { Button, Card, EmptyState, ErrorState, PageHeader, Segmented, Select, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, EmptyState, ErrorState, PageHeader, Segmented, Select } from "@/components/ui/primitives";
 import { useAstronauts, useMissions, useThresholds } from "@/lib/api/queries";
 import { useHydrated } from "@/lib/hooks";
 import { useEventRate } from "@/lib/realtime/hooks";
 import { useLinkStatus } from "@/lib/realtime/store";
 import { usePagination } from "@/lib/use-pagination";
 import { SEVERITY_RANK } from "@/lib/vitals";
+import { MonitorTilesSkeleton } from "@/components/skeletons/page-skeletons";
 
 type Sort = "severity" | "name";
 type Scope = "active" | "all";
@@ -124,11 +125,7 @@ export default function LiveMonitorPage() {
       </div>
 
       {crew.isPending || thresholds.isPending ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-          {Array.from({ length: 8 }, (_, i) => (
-            <Skeleton key={i} className="h-[230px] rounded-[var(--radius-card)]" />
-          ))}
-        </div>
+        <MonitorTilesSkeleton />
       ) : crew.isError ? (
         <ErrorState error={crew.error} onRetry={() => crew.refetch()} />
       ) : roster.length === 0 ? (

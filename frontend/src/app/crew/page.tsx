@@ -12,13 +12,14 @@ import { HealthBadge } from "@/components/ui/badges";
 import { Dialog } from "@/components/ui/dialog";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
-import { Button, Card, EmptyState, ErrorState, Input, PageHeader, Segmented, Select, Skeleton } from "@/components/ui/primitives";
+import { Button, Card, EmptyState, ErrorState, Input, PageHeader, Segmented, Select } from "@/components/ui/primitives";
 import { useAstronauts, useMissions } from "@/lib/api/queries";
 import type { HealthStatus } from "@/lib/api/types";
 import { humanize, timeAgo } from "@/lib/format";
 import { useDebouncedValue } from "@/lib/hooks";
 import { PAGE_SIZE } from "@/lib/prefetch";
 import { reports } from "@/lib/reports";
+import { CrewTableSkeleton } from "@/components/skeletons/page-skeletons";
 
 type View = "table" | "grid";
 
@@ -123,7 +124,7 @@ export default function CrewPage() {
       </div>
 
       {crew.isPending ? (
-        <Skeleton className="h-96 rounded-[var(--radius-card)]" />
+        <CrewTableSkeleton />
       ) : crew.isError ? (
         <ErrorState error={crew.error} onRetry={() => crew.refetch()} />
       ) : crew.data.items.length === 0 ? (

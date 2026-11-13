@@ -15,25 +15,29 @@ internal static partial class ReportTheme
 {
     public const string Brand = "VITA";
     public const string BrandFull = "Vital Integrated Telemetry for Astronauts";
-    public const string Disclaimer = "Demo system — not for clinical use";
+    public const string Disclaimer = "Demonstration system, not for clinical use";
+    public const string Classification = "Confidential · crew medical data";
 
-    // Palette (hex, no alpha) — light theme tokens from globals.css
-    public const string Ink = "#0B1220";
-    public const string Muted = "#55647E";
-    public const string Faint = "#94A3B8";
-    public const string Line = "#E2E8F0";
-    public const string Panel = "#F8FAFC";
-    public const string HeaderFill = "#0F172A";
-    public const string Accent = "#0891B2";
-    public const string AccentSoft = "#ECFEFF";
-    public const string Nominal = "#059669";
-    public const string NominalSoft = "#ECFDF5";
-    public const string Caution = "#D97706";
-    public const string CautionSoft = "#FFFBEB";
-    public const string Critical = "#E11D48";
-    public const string CriticalSoft = "#FFF1F2";
-    public const string Violet = "#7C3AED";
-    public const string VioletSoft = "#F5F3FF";
+    // Palette: the web app's light-theme tokens (globals.css). Text colours meet WCAG AA on white.
+    public const string Ink = "#111114";
+    public const string Muted = "#5C5C66";
+    public const string Faint = "#71717B";
+    public const string Line = "#EBEBEE";
+    public const string LineStrong = "#DCDCE1";
+    public const string Panel = "#F7F7F8";
+    public const string Raised = "#F4F4F5";
+    /// <summary>Header fill for spreadsheet tables (PDF tables use hairlines instead).</summary>
+    public const string HeaderFill = "#111114";
+    public const string Accent = "#4F5FF0";
+    public const string AccentSoft = "#EEF0FE";
+    public const string Nominal = "#0B7F3D";
+    public const string NominalSoft = "#EAF6EF";
+    public const string Caution = "#B45309";
+    public const string CautionSoft = "#FDF3E6";
+    public const string Critical = "#D1343A";
+    public const string CriticalSoft = "#FCEDEE";
+    public const string Violet = "#6B5BD6";
+    public const string VioletSoft = "#F1EFFC";
 
     public enum Tone { Neutral, Nominal, Caution, Critical, Accent, Violet }
 
@@ -60,7 +64,7 @@ internal static partial class ReportTheme
     public static Tone ToneOf(AlertStatus status) => status switch
     {
         AlertStatus.Open => Tone.Accent,
-        AlertStatus.Acknowledged => Tone.Violet,
+        AlertStatus.Acknowledged => Tone.Neutral,
         _ => Tone.Neutral
     };
 

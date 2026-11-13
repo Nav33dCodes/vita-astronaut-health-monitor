@@ -11,6 +11,7 @@
 /* Table density preference (Settings → Density). */
 @custom-variant compact (&:where([data-density="compact"] *));
 
+/* Text and status colours meet WCAG AA (4.5:1) on their surfaces in both themes. */
 @theme {
   --color-canvas: #f7f7f8;
   --color-panel: #ffffff;
@@ -18,16 +19,16 @@
   --color-line: #ebebee;
   --color-line-strong: #dcdce1;
   --color-ink: #111114;
-  --color-muted: #66666f;
-  --color-faint: #a0a0aa;
-  --color-accent: #5b6cff;
+  --color-muted: #5c5c66;
+  --color-faint: #71717b;
+  --color-accent: #4f5ff0;
   --color-accent-ink: #ffffff;
   --color-violet: #8b7cf6;
-  --color-nominal: #12a150;
-  --color-caution: #d97706;
-  --color-critical: #e5484d;
+  --color-nominal: #0b7f3d;
+  --color-caution: #b45309;
+  --color-critical: #d1343a;
   /* Solid fill behind white text (strips, badges): stays AA-legible in both themes. */
-  --color-critical-solid: #dc3e42;
+  --color-critical-solid: #c62f36;
   /* Tint used for hover/fill overlays. */
   --color-overlay: #111114;
   --color-track: #efeff2;
@@ -118,7 +119,7 @@
   --color-line-strong: #2e2e35;
   --color-ink: #ececef;
   --color-muted: #8f8f99;
-  --color-faint: #5d5d66;
+  --color-faint: #80808a;
   --color-accent: #7280ff;
   --color-accent-ink: #ffffff;
   --color-violet: #a495ff;

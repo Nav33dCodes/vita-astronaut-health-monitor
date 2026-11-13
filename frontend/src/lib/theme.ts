@@ -70,7 +70,7 @@ export function useTheme() {
 export function useThemeColors() {
   const { resolved } = useTheme();
   return useMemo(() => {
-    const fallback = { accent: "#5b6cff", violet: "#8b7cf6", nominal: "#12a150", caution: "#d97706", critical: "#e5484d", grid: "#efeff2", axis: "#a0a0aa", panel: "#ffffff", line: "#dcdce1", muted: "#66666f", canvas: "#f7f7f8", ink: "#111114" };
+    const fallback = { accent: "#4f5ff0", violet: "#8b7cf6", nominal: "#0b7f3d", caution: "#b45309", critical: "#d1343a", grid: "#efeff2", axis: "#71717b", panel: "#ffffff", line: "#dcdce1", muted: "#5c5c66", canvas: "#f7f7f8", ink: "#111114" };
     if (typeof window === "undefined") return fallback;
     const css = getComputedStyle(document.documentElement);
     const read = (name: string, fb: string) => css.getPropertyValue(name).trim() || fb;

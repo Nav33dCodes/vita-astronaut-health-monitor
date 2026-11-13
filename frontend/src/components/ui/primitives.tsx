@@ -13,11 +13,16 @@ interface CardProps {
   tone?: "critical" | "caution";
 }
 
+// Callers that set their own padding (p-0 for edge-to-edge tables, p-4 …) replace the default,
+// instead of both classes competing in the stylesheet.
+const hasPadding = (className: string | undefined) => /(^|\s)!?p-/.test(className ?? "");
+
 export function Card({ className, children, tone }: CardProps) {
   return (
     <section
       className={clsx(
-        "glass rounded-[var(--radius-card)] p-5",
+        "glass rounded-[var(--radius-card)]",
+        !hasPadding(className) && "p-5",
         tone === "critical" && "glow-critical",
         tone === "caution" && "glow-caution",
         className,

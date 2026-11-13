@@ -1,6 +1,7 @@
 using AstroHealth.Application.Alerts;
 using AstroHealth.Application.Astronauts;
 using AstroHealth.Application.Dashboard;
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Missions;
 using AstroHealth.Application.Vitals;
 using AstroHealth.Domain.Alerts;
@@ -18,7 +19,8 @@ public sealed record FleetReport(
     IReadOnlyList<CrewReportRow> Crew,
     IReadOnlyList<AlertResponse> OpenAlerts,
     IReadOnlyList<MissionResponse> Missions,
-    IReadOnlyList<ThresholdResponse> Thresholds);
+    IReadOnlyList<ThresholdResponse> Thresholds,
+    HazardOverviewResponse? Hazards = null);
 
 public sealed record AstronautReport(
     DateTimeOffset GeneratedAtUtc,
@@ -28,7 +30,9 @@ public sealed record AstronautReport(
     VitalStatsResponse Stats,
     VitalSeriesResponse Series,
     IReadOnlyList<AlertResponse> Alerts,
-    IReadOnlyList<ThresholdResponse> Thresholds);
+    IReadOnlyList<ThresholdResponse> Thresholds,
+    CrewHazardsResponse? Hazards = null,
+    WellnessResponse? Wellness = null);
 
 public sealed record AlertsReport(DateTimeOffset GeneratedAtUtc, AlertQuery Filter, IReadOnlyList<AlertResponse> Alerts);
 
@@ -69,6 +73,8 @@ internal sealed class ReportService(
     IMissionService missions,
     IVitalService vitals,
     IHealthAssessmentService assessments,
+    IHazardService hazards,
+    IWellnessService wellness,
     IReportRenderer renderer,
     TimeProvider clock) : IReportService
 {
@@ -100,10 +106,13 @@ internal sealed class ReportService(
         var stats = await vitals.GetStatsAsync(astronautId, windowHours, ct);
         var series = await vitals.GetSeriesAsync(astronautId, windowHours, ChartBuckets, ct);
         var history = await alerts.ListAsync(new AlertQuery(AstronautId: astronautId, PageSize: 25), ct);
+        var overview = await hazards.GetOverviewAsync(ct);
+        var crewHazards = overview.Missions.SelectMany(m => m.Crew).FirstOrDefault(c => c.AstronautId == astronautId);
+        var sleep = await wellness.GetAsync(astronautId, 7, ct);
 
         return renderer.AstronautPdf(new AstronautReport(
             clock.GetUtcNow(), windowHours, astronaut.Value, assessment.Value, stats.Value, series.Value,
-            history.Items, vitals.GetThresholds()));
+            history.Items, vitals.GetThresholds(), crewHazards, sleep.IsSuccess ? sleep.Value : null));
     }
 
     public async Task<Result<ReportFile>> VitalsExcelAsync(Guid astronautId, int windowHours, CancellationToken ct)
@@ -133,6 +142,8 @@ internal sealed class ReportService(
         var open = await alerts.ListAsync(new AlertQuery(Status: AlertStatus.Open, PageSize: 50), ct);
         var missionList = await missions.ListAsync(null, ct);
 
-        return new FleetReport(clock.GetUtcNow(), summary, crew, open.Items, missionList, vitals.GetThresholds());
+        var overview = await hazards.GetOverviewAsync(ct);
+
+        return new FleetReport(clock.GetUtcNow(), summary, crew, open.Items, missionList, vitals.GetThresholds(), overview);
     }
 }

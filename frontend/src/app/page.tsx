@@ -45,7 +45,7 @@ export default function OverviewPage() {
         title="Overview"
         subtitle={
           hydrated && dashboard.data
-            ? `${active.length ? active.map((m) => m.name).join(", ") : "No mission in flight"} · ${dashboard.data.totalCrew} crew monitored in real time`
+            ? `${active.length ? active.map((m) => m.name).join(", ") : "No mission in flight"} · ${focused ? focused.crewCount : dashboard.data.totalCrew} crew monitored in real time`
             : "Crew health across every active mission."
         }
         action={<ExportMenu options={[reports.fleetPdf(), reports.crewExcel()]} />}
@@ -76,7 +76,11 @@ function Overview({ summary }: { summary: DashboardSummary }) {
     () => (scope ? new Map([...byAstronaut].filter(([id]) => scopedCrew.some((a) => a.id === id))) : byAstronaut),
     [byAstronaut, scope, scopedCrew],
   );
-  const attention = summary.crewHealth.critical + summary.crewHealth.caution;
+  // Counts follow the mission focus; the KPI row above stays fleet-wide.
+  const attention = scope
+    ? scopedCrew.filter((a) => a.healthStatus === "Critical" || a.healthStatus === "Caution").length
+    : summary.crewHealth.critical + summary.crewHealth.caution;
+  const crewCount = scope ? scopedCrew.length : summary.totalCrew;
 
   return (
     <div className="space-y-4">
@@ -100,7 +104,7 @@ function Overview({ summary }: { summary: DashboardSummary }) {
               value={attentionOnly}
               onChange={setAttentionOnly}
               options={[
-                { value: false, label: "All", count: summary.totalCrew },
+                { value: false, label: "All", count: crewCount },
                 { value: true, label: "Needs attention", count: attention },
               ]}
             />

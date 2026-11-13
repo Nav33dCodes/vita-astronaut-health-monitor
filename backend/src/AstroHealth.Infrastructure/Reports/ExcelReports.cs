@@ -1,5 +1,8 @@
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Reports;
 using AstroHealth.Application.Vitals;
+using AstroHealth.Domain.Astronauts;
+using AstroHealth.Domain.Hazards;
 using AstroHealth.Domain.Vitals;
 using ClosedXML.Excel;
 using static AstroHealth.Infrastructure.Reports.ReportTheme;
@@ -59,7 +62,7 @@ internal static class ExcelReports
         Highlight(table.DataRange.Column(4), "Critical", Critical, CriticalSoft);
         Highlight(table.DataRange.Column(4), "Warning", Caution, CautionSoft);
         Highlight(table.DataRange.Column(5), "Open", Accent, AccentSoft);
-        Highlight(table.DataRange.Column(5), "Acknowledged", Violet, VioletSoft);
+        Highlight(table.DataRange.Column(5), "Acknowledged", Ink, Raised);
         Highlight(table.DataRange.Column(5), "Resolved", Muted, Panel);
         table.DataRange.Column(6).AddConditionalFormat().WhenGreaterThan(0)
             .Font.SetBold().Font.SetFontColor(X(Critical)).Fill.SetBackgroundColor(X(CriticalSoft));
@@ -203,15 +206,16 @@ internal static class ExcelReports
     public static byte[] Crew(FleetReport report)
     {
         using var workbook = NewWorkbook("Crew roster", report.GeneratedAtUtc);
-        var sheet = Sheet(workbook, "Crew", "Crew roster & latest vitals",
-            $"{report.Crew.Count} astronauts · {report.Summary.ActiveMissions} missions in flight · generated {Utc(report.GeneratedAtUtc)}", 16);
+        var sheet = Sheet(workbook, "Crew", "Crew roster and latest vitals",
+            $"{report.Crew.Count} crew · {report.Summary.ActiveMissions} missions in flight · generated {Utc(report.GeneratedAtUtc)}", 18);
         var reference = Sheet(workbook, "Thresholds", "Clinical reference ranges", "Used for the highlighting on the Crew sheet", 6);
 
         string[] headers = ["Astronaut", "Agency", "Role", "Mission", "Health", "Open alerts", "EWS", "Risk",
             "Heart rate (bpm)", "SpO2 (%)", "Systolic (mmHg)", "Diastolic (mmHg)", "Temperature (°C)", "Respiration (/min)",
-            "Radiation (mSv)", "Last reading (UTC)"];
+            "Dose rate (mSv/day)", "Mission dose (mSv)", "Career limit (%)", "Last reading (UTC)"];
         var rows = report.Crew.OrderBy(r => r.Astronaut.LastName).ToList();
-        var table = Table(sheet, "Crew", headers, rows.Count, [22, 12, 18, 18, 11, 11, 7, 12, 15, 10, 15, 15, 15, 16, 14, 19]);
+        var table = Table(sheet, "Crew", headers, rows.Count, [22, 12, 18, 18, 11, 11, 7, 12, 15, 10, 15, 15, 15, 16, 17, 17, 15, 19]);
+        var radiation = report.Hazards?.Missions.SelectMany(m => m.Crew).ToDictionary(c => c.AstronautId, c => c.Radiation) ?? [];
         var thresholds = report.Thresholds.ToDictionary(t => t.Metric);
         VitalMetric[] metricColumns =
         [
@@ -238,13 +242,22 @@ internal static class ExcelReports
                     sheet.Cell(row, 9 + m).Value = (double)ValueOf(latest, metricColumns[m]);
                 }
             }
-            if (a.LastReadingAtUtc is { } at) sheet.Cell(row, 16).Value = at.UtcDateTime;
+            if (radiation.TryGetValue(a.Id, out var dose))
+            {
+                sheet.Cell(row, 16).Value = (double)dose.MissionDoseMsv;
+                sheet.Cell(row, 17).Value = (double)dose.PercentOfLimit / 100;
+            }
+            if (a.LastReadingAtUtc is { } at) sheet.Cell(row, 18).Value = at.UtcDateTime;
         }
 
-        Format(table, [16], DateFormat);
+        Format(table, [18], DateFormat);
         Format(table, [9, 11, 12, 14], "0");
         Format(table, [10, 13], "0.0");
-        Format(table, [15], "0.0000");
+        Format(table, [15], "0.00");
+        Format(table, [16], "0.0");
+        Format(table, [17], "0.0%");
+        table.DataRange.Column(17).AddConditionalFormat().WhenEqualOrGreaterThan(0.8)
+            .Font.SetBold().Font.SetFontColor(X(Caution)).Fill.SetBackgroundColor(X(CautionSoft));
         Center(table, [5, 6, 7, 8]);
         Highlight(table.DataRange.Column(5), "Critical", Critical, CriticalSoft);
         Highlight(table.DataRange.Column(5), "Caution", Caution, CautionSoft);
@@ -258,10 +271,93 @@ internal static class ExcelReports
             }
         }
 
+        if (report.Hazards is { } hazards)
+        {
+            WriteHazards(workbook, hazards, report.GeneratedAtUtc);
+        }
+
         WriteThresholds(reference, report.Thresholds);
         sheet.SetTabActive();
         return Save(workbook);
     }
+
+    /// <summary>Crew × five hazards matrix and each spacecraft's latest cabin environment.</summary>
+    private static void WriteHazards(XLWorkbook workbook, HazardOverviewResponse hazards, DateTimeOffset generatedAt)
+    {
+        var sheet = Sheet(workbook, "Hazards", "Five hazards of spaceflight",
+            $"Each crew member assessed against NASA's five hazards of human spaceflight · generated {Utc(generatedAt)}", 9);
+        sheet.Position = 2;
+
+        string[] headers = ["Crew member", "Mission", "Overall", "Space radiation", "Isolation and confinement",
+            "Distance from Earth", "Gravity fields", "Hostile and closed environments", "Mission dose (mSv)"];
+        var crew = hazards.Missions.SelectMany(m => m.Crew.Select(c => (Mission: m.Name, Crew: c))).ToList();
+        var table = Table(sheet, "Hazards", headers, crew.Count, [22, 16, 11, 16, 16, 16, 16, 18, 17]);
+
+        for (var i = 0; i < crew.Count; i++)
+        {
+            var (mission, c) = crew[i];
+            var row = HeaderRow + 1 + i;
+            sheet.Cell(row, 1).Value = c.Name;
+            sheet.Cell(row, 2).Value = mission;
+            sheet.Cell(row, 3).Value = StatusText(c.Overall);
+            for (var h = 0; h < ReportHazards.Order.Length; h++)
+            {
+                var status = c.Hazards.FirstOrDefault(x => x.Hazard == ReportHazards.Order[h]);
+                var cell = sheet.Cell(row, 4 + h);
+                cell.Value = StatusText(status?.Status ?? HealthStatus.Unknown);
+                if (status is not null)
+                {
+                    cell.CreateComment().AddText(status.Detail is null ? status.Headline : $"{status.Headline}\n{status.Detail}");
+                }
+            }
+            sheet.Cell(row, 9).Value = (double)c.Radiation.MissionDoseMsv;
+        }
+
+        Format(table, [9], "0.0");
+        Center(table, [3, 4, 5, 6, 7, 8]);
+        for (var col = 3; col <= 8; col++)
+        {
+            Highlight(table.DataRange.Column(col), "Critical", Critical, CriticalSoft);
+            Highlight(table.DataRange.Column(col), "Caution", Caution, CautionSoft);
+            Highlight(table.DataRange.Column(col), "Nominal", Nominal, NominalSoft);
+        }
+
+        // Cabin environment, below the matrix.
+        var cabinHeader = HeaderRow + Math.Max(crew.Count, 1) + 3;
+        sheet.Cell(cabinHeader - 1, 1).Value = "Cabin environment, latest reading";
+        sheet.Cell(cabinHeader - 1, 1).Style.Font.SetBold().Font.SetFontColor(X(Ink));
+        string[] cabinHeaders = ["Spacecraft", "Destination", "Signal delay", "CO₂ (mmHg)", "O₂ (%)", "Pressure (kPa)", "Temp (°C)", "Humidity (%)", "Dose rate (mSv/day)"];
+        for (var c = 0; c < cabinHeaders.Length; c++) sheet.Cell(cabinHeader, 1 + c).Value = cabinHeaders[c];
+        for (var i = 0; i < hazards.Missions.Count; i++)
+        {
+            var m = hazards.Missions[i];
+            var row = cabinHeader + 1 + i;
+            sheet.Cell(row, 1).Value = m.Name;
+            sheet.Cell(row, 2).Value = Humanize(m.Destination);
+            sheet.Cell(row, 3).Value = ReportHazards.SignalDelay(m.CommunicationDelay);
+            if (m.Habitat is not { } h) continue;
+            (HabitatMetric Metric, decimal Value)[] cells =
+            [
+                (HabitatMetric.CarbonDioxide, h.CarbonDioxideMmHg), (HabitatMetric.Oxygen, h.OxygenPct),
+                (HabitatMetric.CabinPressure, h.CabinPressureKpa), (HabitatMetric.CabinTemperature, h.CabinTemperatureC),
+                (HabitatMetric.Humidity, h.HumidityPct), (HabitatMetric.RadiationDoseRate, h.RadiationDoseRateMsvPerDay)
+            ];
+            for (var k = 0; k < cells.Length; k++)
+            {
+                var cell = sheet.Cell(row, 4 + k);
+                cell.Value = (double)cells[k].Value;
+                cell.Style.NumberFormat.Format = cells[k].Metric == HabitatMetric.RadiationDoseRate ? "0.00" : "0.0";
+                var tone = ReportHazards.HabitatTone(cells[k].Metric, cells[k].Value);
+                if (tone is Tone.Caution or Tone.Critical)
+                {
+                    cell.Style.Font.SetBold().Font.SetFontColor(X(Palette(tone).Fg)).Fill.SetBackgroundColor(X(Palette(tone).Bg));
+                }
+            }
+        }
+        StyleMatrix(sheet, cabinHeader, cabinHeader + Math.Max(hazards.Missions.Count, 1), cabinHeaders.Length, null);
+    }
+
+    private static string StatusText(HealthStatus status) => status == HealthStatus.Unknown ? "No data" : status.ToString();
 
     // ---- Building blocks ------------------------------------------------------------------
 
@@ -276,7 +372,7 @@ internal static class ExcelReports
         workbook.Properties.Company = BrandFull;
         workbook.Properties.Title = $"{Brand} — {title}";
         workbook.Properties.Subject = title;
-        workbook.Properties.Comments = $"Generated {Utc(generatedAt)}. {Disclaimer}.";
+        workbook.Properties.Comments = $"Generated {Utc(generatedAt)}. {Classification}. {Disclaimer}.";
         return workbook;
     }
 
@@ -287,24 +383,30 @@ internal static class ExcelReports
         sheet.ShowGridLines = false;
         sheet.TabColor = X(Accent);
 
-        var titleCell = sheet.Cell(TitleRow, 1);
-        titleCell.Value = $"{Brand}  ·  {title}";
-        titleCell.Style.Font.SetBold().Font.SetFontSize(16).Font.SetFontColor(X(Ink));
+        // Title: the "VITA." wordmark (indigo full stop) followed by the sheet title.
+        var titleText = sheet.Cell(TitleRow, 1).GetRichText();
+        titleText.AddText(Brand).SetBold().SetFontSize(12).SetFontColor(X(Ink));
+        titleText.AddText(".").SetBold().SetFontSize(12).SetFontColor(X(Accent));
+        titleText.AddText("   ").SetFontSize(12);
+        titleText.AddText(title).SetBold().SetFontSize(15).SetFontColor(X(Ink));
         sheet.Row(TitleRow).Height = 28;
+        sheet.Cell(TitleRow, 1).Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
         var subtitleCell = sheet.Cell(SubtitleRow, 1);
-        subtitleCell.Value = subtitle;
+        subtitleCell.Value = $"{subtitle} · {Classification}";
         subtitleCell.Style.Font.SetFontColor(X(Muted)).Font.SetFontSize(9);
 
-        // Thin accent rule under the title block.
-        sheet.Range(SubtitleRow, 1, SubtitleRow, columns).Style.Border.BottomBorder = XLBorderStyleValues.Medium;
-        sheet.Range(SubtitleRow, 1, SubtitleRow, columns).Style.Border.BottomBorderColor = X(Accent);
+        // Hairline under the title block.
+        sheet.Range(SubtitleRow, 1, SubtitleRow, columns).Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+        sheet.Range(SubtitleRow, 1, SubtitleRow, columns).Style.Border.BottomBorderColor = X(LineStrong);
         sheet.Row(HeaderRow - 1).Height = 8;
 
         sheet.PageSetup.PageOrientation = XLPageOrientation.Landscape;
         sheet.PageSetup.FitToPages(1, 0);
         sheet.PageSetup.Margins.SetLeft(0.4).SetRight(0.4).SetTop(0.5).SetBottom(0.5);
-        sheet.PageSetup.Footer.Center.AddText($"{Brand} · {Disclaimer} · Page &P of &N");
+        sheet.PageSetup.Footer.Left.AddText($"{Brand} · {title}");
+        sheet.PageSetup.Footer.Right.AddText("&P / &N");
+        sheet.PageSetup.Footer.Center.AddText($"{Classification}. {Disclaimer}.");
         return sheet;
     }
 
@@ -329,8 +431,7 @@ internal static class ExcelReports
         table.ShowAutoFilter = true;
 
         var header = table.HeadersRow();
-        header.Style.Font.SetBold().Font.SetFontColor(XLColor.White).Fill.SetBackgroundColor(X(HeaderFill));
-        header.Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
+        HeaderStyle(header.Style);
         sheet.Row(HeaderRow).Height = 22;
 
         // Subtle banding (conditional fills for status columns layer on top).
@@ -344,6 +445,13 @@ internal static class ExcelReports
         sheet.SheetView.FreezeRows(HeaderRow);
         sheet.PageSetup.SetRowsToRepeatAtTop(HeaderRow, HeaderRow);
         return table;
+    }
+
+    private static void HeaderStyle(IXLStyle style)
+    {
+        style.Font.SetBold().Font.SetFontColor(X(Muted)).Fill.SetBackgroundColor(X(Raised));
+        style.Border.SetBottomBorder(XLBorderStyleValues.Thin).Border.SetBottomBorderColor(X(LineStrong));
+        style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
     }
 
     private static void Format(IXLTable table, int[] columns, string format)
@@ -383,9 +491,8 @@ internal static class ExcelReports
     private static void StyleMatrix(IXLWorksheet sheet, int headerRow, int lastRow, int columns, double[]? widths)
     {
         var header = sheet.Range(headerRow, 1, headerRow, columns);
-        header.Style.Font.SetBold().Font.SetFontColor(XLColor.White).Fill.SetBackgroundColor(X(HeaderFill));
+        HeaderStyle(header.Style);
         sheet.Row(headerRow).Height = 22;
-        header.Style.Alignment.SetVertical(XLAlignmentVerticalValues.Center);
 
         var body = sheet.Range(headerRow + 1, 1, lastRow, columns);
         body.Style.Border.SetBottomBorder(XLBorderStyleValues.Hair).Border.SetBottomBorderColor(X(Line));

@@ -7,8 +7,9 @@ public class HealthEvaluatorTests
 {
     private static VitalReading Reading(
         int heartRate = 72, int systolic = 118, int diastolic = 76, decimal spo2 = 98m,
-        decimal temperature = 36.8m, int respiratory = 14, decimal radiation = 0.2m) =>
-        new(Guid.NewGuid(), DateTimeOffset.UtcNow, heartRate, systolic, diastolic, spo2, temperature, respiratory, radiation);
+        decimal temperature = 36.8m, int respiratory = 14, decimal radiation = 0.2m, decimal? doseRate = null) =>
+        new(Guid.NewGuid(), DateTimeOffset.UtcNow, heartRate, systolic, diastolic, spo2, temperature, respiratory, radiation,
+            radiationDoseRateMsvPerDay: doseRate);
 
     [Fact]
     public void Normal_vitals_produce_no_findings()
@@ -50,7 +51,7 @@ public class HealthEvaluatorTests
     [Fact]
     public void Multiple_abnormal_metrics_produce_one_finding_each()
     {
-        var findings = HealthEvaluator.Evaluate(Reading(heartRate: 130, temperature: 39.5m, radiation: 2m));
+        var findings = HealthEvaluator.Evaluate(Reading(heartRate: 130, temperature: 39.5m, doseRate: 3m));
 
         Assert.Equal(3, findings.Count);
         Assert.Contains(findings, f => f is { Metric: VitalMetric.BodyTemperature, Severity: AlertSeverity.Critical });

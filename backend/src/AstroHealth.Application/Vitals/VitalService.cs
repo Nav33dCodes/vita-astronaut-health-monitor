@@ -4,6 +4,8 @@ using AstroHealth.Application.Common;
 using AstroHealth.Domain.Alerts;
 using AstroHealth.Domain.Astronauts;
 using AstroHealth.Domain.Common;
+using AstroHealth.Domain.Hazards;
+using AstroHealth.Domain.Missions;
 using AstroHealth.Domain.Vitals;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -30,19 +32,22 @@ internal sealed class VitalService(
 {
     public async Task<Result<RecordVitalsResponse>> RecordAsync(Guid astronautId, RecordVitalsRequest request, CancellationToken ct)
     {
-        var astronaut = await db.Astronauts.AsNoTracking()
-            .Where(a => a.Id == astronautId)
-            .Select(a => new { a.FirstName, a.LastName, a.MissionId })
-            .FirstOrDefaultAsync(ct);
+        // Tracked: each reading adds to the astronaut's accumulated mission dose.
+        var astronaut = await db.Astronauts
+            .Include(a => a.Mission)
+            .FirstOrDefaultAsync(a => a.Id == astronautId, ct);
 
         if (astronaut is null)
         {
             return AstronautErrors.NotFound(astronautId);
         }
 
+        var recordedAt = request.RecordedAtUtc?.ToUniversalTime() ?? clock.GetUtcNow();
+        astronaut.AccrueDose(request.RadiationDoseMsv, () => EstimateDoseSoFar(astronaut.Mission, recordedAt));
+
         var reading = new VitalReading(
             astronautId,
-            request.RecordedAtUtc?.ToUniversalTime() ?? clock.GetUtcNow(),
+            recordedAt,
             request.HeartRateBpm,
             request.SystolicMmHg,
             request.DiastolicMmHg,
@@ -50,7 +55,8 @@ internal sealed class VitalService(
             request.BodyTemperatureC,
             request.RespiratoryRatePerMin,
             request.RadiationDoseMsv,
-            request.Notes);
+            request.Notes,
+            request.RadiationDoseRateMsvPerDay);
 
         db.VitalReadings.Add(reading);
 
@@ -75,6 +81,22 @@ internal sealed class VitalService(
         }
 
         return response;
+    }
+
+    /// <summary>
+    /// A dose record that starts mid-mission is back-filled with the destination's background
+    /// rate over the time already flown, so the running total is realistic from day one.
+    /// </summary>
+    private static decimal EstimateDoseSoFar(Mission? mission, DateTimeOffset at)
+    {
+        if (mission is null || mission.Status != MissionStatus.Active)
+        {
+            return 0m;
+        }
+
+        var launch = new DateTimeOffset(mission.LaunchDate.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        var days = (decimal)Math.Max(0, (at - launch).TotalDays);
+        return Math.Round(days * SpaceEnvironment.BaselineDoseRateMsvPerDay(mission.Destination), 4);
     }
 
     /// <summary>
@@ -184,19 +206,23 @@ internal sealed class VitalService(
                 .Select(r => new
                 {
                     r.RecordedAtUtc, r.HeartRateBpm, r.SystolicMmHg, r.DiastolicMmHg,
-                    r.OxygenSaturationPct, r.BodyTemperatureC, r.RespiratoryRatePerMin, r.RadiationDoseMsv
+                    r.OxygenSaturationPct, r.BodyTemperatureC, r.RespiratoryRatePerMin, r.RadiationDoseMsv,
+                    r.RadiationDoseRateMsvPerDay
                 })
                 .ToListAsync(ct))
             .Select(r => new WeightedSample(
                 r.RecordedAtUtc, 1, r.HeartRateBpm, r.SystolicMmHg, r.DiastolicMmHg,
-                r.OxygenSaturationPct, r.BodyTemperatureC, r.RespiratoryRatePerMin, r.RadiationDoseMsv));
+                r.OxygenSaturationPct, r.BodyTemperatureC, r.RespiratoryRatePerMin, r.RadiationDoseMsv,
+                r.RadiationDoseRateMsvPerDay));
 
         var rolledUp = (await db.VitalRollups.AsNoTracking()
                 .Where(r => r.AstronautId == astronautId && r.BucketStartUtc >= since)
                 .ToListAsync(ct))
             .Select(r => new WeightedSample(
                 r.BucketStartUtc.AddMinutes(30), r.Samples, r.AvgHeartRateBpm, r.AvgSystolicMmHg, r.AvgDiastolicMmHg,
-                r.AvgOxygenSaturationPct, r.AvgBodyTemperatureC, r.AvgRespiratoryRatePerMin, r.AvgRadiationDoseMsv));
+                r.AvgOxygenSaturationPct, r.AvgBodyTemperatureC, r.AvgRespiratoryRatePerMin, r.AvgRadiationDoseMsv,
+                // An hourly bucket's total dose × 24 is that hour's rate in mSv/day.
+                Math.Round(r.TotalRadiationDoseMsv * 24, 3)));
 
         var samples = raw.Concat(rolledUp).ToList();
 
@@ -218,11 +244,25 @@ internal sealed class VitalService(
                     Mean(s => s.OxygenSaturation, 2),
                     Mean(s => s.BodyTemperature, 2),
                     Mean(s => s.RespiratoryRate, 1),
-                    Mean(s => s.RadiationDose, 4));
+                    Mean(s => s.RadiationDose, 6),
+                    RateMean(g));
             })
             .ToList();
 
         return new VitalSeriesResponse(astronautId, windowHours, bucketSeconds, samples.Sum(s => s.Weight), points);
+    }
+
+    /// <summary>Weighted mean dose rate of the samples that reported one (null if none did).</summary>
+    private static decimal? RateMean(IEnumerable<WeightedSample> samples)
+    {
+        var rated = samples.Where(s => s.DoseRate is not null).ToList();
+        if (rated.Count == 0)
+        {
+            return null;
+        }
+
+        decimal weight = rated.Sum(s => s.Weight);
+        return Math.Round(rated.Sum(s => s.DoseRate!.Value * s.Weight) / weight, 3);
     }
 
     private sealed record WeightedSample(
@@ -234,7 +274,8 @@ internal sealed class VitalService(
         decimal OxygenSaturation,
         decimal BodyTemperature,
         decimal RespiratoryRate,
-        decimal RadiationDose);
+        decimal RadiationDose,
+        decimal? DoseRate);
 
     public async Task<TelemetrySnapshotResponse> GetSnapshotAsync(int windowMinutes, int perAstronaut, Guid? missionId, CancellationToken ct)
     {

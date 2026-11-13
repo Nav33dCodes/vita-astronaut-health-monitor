@@ -6,6 +6,7 @@ import { EscalationBadge } from "@/components/ui/ews";
 import { Checkbox } from "@/components/ui/primitives";
 import type { Alert } from "@/lib/api/types";
 import { METRIC_LABELS, timeAgo } from "@/lib/format";
+import { OnboardActionsButton } from "@/components/hazards/onboard-actions";
 import { AlertActions } from "./alert-actions";
 
 /** Severity icon used across alert views. */
@@ -101,6 +102,7 @@ export function AlertList({
             >
               {escalated && <EscalationBadge level={alert.escalationLevel} />}
               {!compact && <AlertStatusBadge status={alert.status} />}
+              {!resolved && <OnboardActionsButton playbookKey={alert.metric} subject={`${alert.astronautName}: ${alert.message}`} />}
               <AlertActions alert={alert} />
             </div>
           </li>

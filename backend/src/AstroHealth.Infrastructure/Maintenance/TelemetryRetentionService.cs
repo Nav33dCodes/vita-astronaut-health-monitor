@@ -92,6 +92,13 @@ internal sealed class TelemetryRetentionService(
             hoursRolled++;
         }
 
+        // Cabin environment telemetry only backs the live view: it is pruned with raw vitals.
+        var habitatPruned = await db.HabitatReadings.Where(h => h.RecordedAtUtc < cutoff).ExecuteDeleteAsync(ct);
+        if (habitatPruned > 0)
+        {
+            logger.LogInformation("Retention: pruned {Count} habitat readings", habitatPruned);
+        }
+
         var rollupCutoff = clock.GetUtcNow().AddDays(-settings.RollupRetentionDays);
         var rollupsPruned = await db.VitalRollups.Where(r => r.BucketStartUtc < rollupCutoff).ExecuteDeleteAsync(ct);
 

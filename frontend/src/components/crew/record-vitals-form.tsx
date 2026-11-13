@@ -19,6 +19,7 @@ const schema = z
     bodyTemperatureC: z.number({ error: "Required" }).min(30).max(45),
     respiratoryRatePerMin: z.number({ error: "Required" }).int().min(4).max(60),
     radiationDoseMsv: z.number({ error: "Required" }).min(0).max(1000),
+    radiationDoseRateMsvPerDay: z.number({ error: "Required" }).min(0).max(10000),
     notes: z.string().max(500),
   })
   .refine((v) => v.diastolicMmHg < v.systolicMmHg, {
@@ -35,7 +36,8 @@ const FIELDS: { name: Exclude<keyof FormValues, "notes">; label: string; step: s
   { name: "diastolicMmHg", label: "Diastolic (mmHg)", step: "1" },
   { name: "bodyTemperatureC", label: "Temperature (°C)", step: "0.1" },
   { name: "respiratoryRatePerMin", label: "Respiration (/min)", step: "1" },
-  { name: "radiationDoseMsv", label: "Radiation dose (mSv)", step: "0.001" },
+  { name: "radiationDoseRateMsvPerDay", label: "Dosimeter rate (mSv/day)", step: "0.01" },
+  { name: "radiationDoseMsv", label: "Dose since last reading (mSv)", step: "0.001" },
 ];
 
 interface Props {
@@ -64,7 +66,8 @@ export function RecordVitalsForm({ astronautId, previous, onRecorded, onCancel }
       oxygenSaturationPct: previous?.oxygenSaturationPct ?? 98,
       bodyTemperatureC: previous?.bodyTemperatureC ?? 36.8,
       respiratoryRatePerMin: previous?.respiratoryRatePerMin ?? 14,
-      radiationDoseMsv: previous?.radiationDoseMsv ?? 0.2,
+      radiationDoseRateMsvPerDay: previous?.radiationDoseRateMsvPerDay ?? 0.5,
+      radiationDoseMsv: 0,
       notes: "",
     },
   });
@@ -100,7 +103,7 @@ export function RecordVitalsForm({ astronautId, previous, onRecorded, onCancel }
       </Field>
       {formError && <p role="alert" className="text-sm text-critical">{formError}</p>}
       <div className="flex justify-end gap-2">
-        <Button type="button" variant="ghost" onClick={onCancel}>
+        <Button type="button" variant="secondary" onClick={onCancel}>
           Cancel
         </Button>
         <Button type="submit" loading={record.isPending}>

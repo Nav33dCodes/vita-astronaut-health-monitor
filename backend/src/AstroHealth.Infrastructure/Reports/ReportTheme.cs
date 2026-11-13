@@ -88,7 +88,7 @@ internal static partial class ReportTheme
         VitalMetric.OxygenSaturation => r.OxygenSaturationPct,
         VitalMetric.BodyTemperature => r.BodyTemperatureC,
         VitalMetric.RespiratoryRate => r.RespiratoryRatePerMin,
-        VitalMetric.RadiationDose => r.RadiationDoseMsv,
+        VitalMetric.RadiationDose => r.RadiationDoseRateMsvPerDay ?? 0,
         _ => 0
     };
 

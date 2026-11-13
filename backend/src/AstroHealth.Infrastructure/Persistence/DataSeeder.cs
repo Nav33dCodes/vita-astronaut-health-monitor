@@ -68,7 +68,7 @@ internal sealed class DataSeeder(AppDbContext db, IVitalService vitals, TimeProv
                 }
                 else if (hoursAgo == 4 && astronaut.LastName == "Tanaka")
                 {
-                    request = request with { RadiationDoseMsv = 1.6m, Notes = "Solar particle event during lunar surface ops." };
+                    request = request with { RadiationDoseMsv = 1.6m, RadiationDoseRateMsvPerDay = 9.6m, Notes = "Solar particle event during lunar surface ops." };
                 }
 
                 await vitals.RecordAsync(astronaut.Id, request, ct);
@@ -85,6 +85,8 @@ internal sealed class DataSeeder(AppDbContext db, IVitalService vitals, TimeProv
         OxygenSaturationPct: Math.Round(96m + (decimal)random.NextDouble() * 3.5m, 1),
         BodyTemperatureC: Math.Round(36.2m + (decimal)random.NextDouble() * 1.0m, 1),
         RespiratoryRatePerMin: random.Next(12, 19),
-        RadiationDoseMsv: Math.Round(0.05m + (decimal)random.NextDouble() * 0.4m, 3),
-        RecordedAtUtc: at);
+        // Four hours at roughly the lunar background rate (about 1.4 mSv/day).
+        RadiationDoseMsv: Math.Round(0.2m + (decimal)random.NextDouble() * 0.05m, 4),
+        RecordedAtUtc: at,
+        RadiationDoseRateMsvPerDay: Math.Round(1.2m + (decimal)random.NextDouble() * 0.3m, 3));
 }

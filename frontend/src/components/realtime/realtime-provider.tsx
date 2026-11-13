@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api/client";
-import type { Alert, AstronautDetail, ReadingRecordedEvent } from "@/lib/api/types";
+import type { Alert, AstronautDetail, HabitatUpdatedEvent, HealthStatus, ReadingRecordedEvent } from "@/lib/api/types";
 import { showDesktopAlert } from "@/lib/notifications";
-import { clearAlarm, raiseAlarm, recordEvent, recordLiveReading, updateLink } from "@/lib/realtime/store";
+import { clearAlarm, raiseAlarm, recordEvent, recordHabitat, recordLiveReading, updateLink } from "@/lib/realtime/store";
 import { playAlertChime, playMasterAlarm } from "@/lib/sound";
 
 const HUB_URL = `${API_BASE_URL}/hubs/telemetry`;
@@ -51,6 +51,10 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
     const telemetryRefresh = createInvalidator(client, 4_000);
     const alertRefresh = createInvalidator(client, 300);
+    const hazardRefresh = createInvalidator(client, 2_000);
+    // Last known cabin status per mission: notify only when it gets worse, never on every packet.
+    const habitatStatus = new Map<string, HealthStatus>();
+    const rank: Record<HealthStatus, number> = { Unknown: 0, Nominal: 1, Caution: 2, Critical: 3 };
     let disposed = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -70,6 +74,26 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         old ? { ...old, latestReading: reading } : old,
       );
       telemetryRefresh.schedule(["dashboard", "astronauts", "vital-stats", "vital-series"]);
+    });
+
+    connection.on("HabitatUpdated", ({ reading, missionName }: HabitatUpdatedEvent) => {
+      recordHabitat(reading);
+      const previous = habitatStatus.get(reading.missionId) ?? "Nominal";
+      habitatStatus.set(reading.missionId, reading.status);
+      if (rank[reading.status] !== rank[previous]) hazardRefresh.schedule(["hazards"]);
+      if (rank[reading.status] <= rank[previous] || reading.findings.length === 0) return;
+
+      const worst = [...reading.findings].sort((a, b) => rank[b.status] - rank[a.status])[0];
+      const critical = reading.status === "Critical";
+      (critical ? toast.error : toast.warning)(`${critical ? "Critical" : "Caution"} · ${missionName} cabin`, {
+        description: worst.message,
+        duration: critical ? 12_000 : 6_000,
+        action: { label: "Hazards", onClick: () => router.push("/hazards") },
+      });
+      if (critical) {
+        playAlertChime();
+        showDesktopAlert({ title: `CABIN · ${missionName}`, body: worst.message, tag: `habitat-${reading.missionId}`, onClick: () => router.push("/hazards") });
+      }
     });
 
     connection.on("AlertRaised", (alert: Alert) => {
@@ -171,6 +195,7 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       if (retryTimer) clearTimeout(retryTimer);
       telemetryRefresh.cancel();
       alertRefresh.cancel();
+      hazardRefresh.cancel();
       void connection.stop();
     };
   }, [client, router]);

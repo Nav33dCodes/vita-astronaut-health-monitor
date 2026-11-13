@@ -115,6 +115,10 @@ namespace AstroHealth.Infrastructure.Persistence.Migrations
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)");
 
+                    b.Property<decimal?>("MissionDoseMsv")
+                        .HasPrecision(12, 4)
+                        .HasColumnType("numeric(12,4)");
+
                     b.Property<Guid?>("MissionId")
                         .HasColumnType("uuid");
 
@@ -133,6 +137,99 @@ namespace AstroHealth.Infrastructure.Persistence.Migrations
                     b.HasIndex("LastName", "FirstName");
 
                     b.ToTable("Astronauts");
+                });
+
+            modelBuilder.Entity("AstroHealth.Domain.Hazards.HabitatReading", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CabinPressureKpa")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<decimal>("CabinTemperatureC")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("CarbonDioxideMmHg")
+                        .HasPrecision(6, 2)
+                        .HasColumnType("numeric(6,2)");
+
+                    b.Property<decimal>("HumidityPct")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<Guid>("MissionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("OxygenPct")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("RadiationDoseRateMsvPerDay")
+                        .HasPrecision(9, 3)
+                        .HasColumnType("numeric(9,3)");
+
+                    b.Property<DateTimeOffset>("RecordedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MissionId", "RecordedAtUtc");
+
+                    b.ToTable("HabitatReadings");
+                });
+
+            modelBuilder.Entity("AstroHealth.Domain.Hazards.WellnessEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ActiveMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("AstronautId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CheckInNote")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<DateTimeOffset?>("CheckedInAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("LightExposureHours")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)");
+
+                    b.Property<int?>("Mood")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SleepEfficiencyPct")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("SleepHours")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)");
+
+                    b.Property<int?>("Stress")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("Workload")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AstronautId", "Date")
+                        .IsUnique();
+
+                    b.ToTable("WellnessEntries");
                 });
 
             modelBuilder.Entity("AstroHealth.Domain.Missions.Mission", b =>
@@ -210,8 +307,12 @@ namespace AstroHealth.Infrastructure.Persistence.Migrations
                         .HasColumnType("numeric(5,2)");
 
                     b.Property<decimal>("RadiationDoseMsv")
-                        .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)");
+                        .HasPrecision(12, 6)
+                        .HasColumnType("numeric(12,6)");
+
+                    b.Property<decimal?>("RadiationDoseRateMsvPerDay")
+                        .HasPrecision(9, 3)
+                        .HasColumnType("numeric(9,3)");
 
                     b.Property<DateTimeOffset>("RecordedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -319,6 +420,24 @@ namespace AstroHealth.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Mission");
+                });
+
+            modelBuilder.Entity("AstroHealth.Domain.Hazards.HabitatReading", b =>
+                {
+                    b.HasOne("AstroHealth.Domain.Missions.Mission", null)
+                        .WithMany()
+                        .HasForeignKey("MissionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AstroHealth.Domain.Hazards.WellnessEntry", b =>
+                {
+                    b.HasOne("AstroHealth.Domain.Astronauts.Astronaut", null)
+                        .WithMany()
+                        .HasForeignKey("AstronautId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("AstroHealth.Domain.Vitals.VitalReading", b =>

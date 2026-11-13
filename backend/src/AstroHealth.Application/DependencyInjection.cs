@@ -2,6 +2,7 @@ using AstroHealth.Application.Abstractions;
 using AstroHealth.Application.Alerts;
 using AstroHealth.Application.Astronauts;
 using AstroHealth.Application.Dashboard;
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Missions;
 using AstroHealth.Application.Reports;
 using AstroHealth.Application.Vitals;
@@ -27,6 +28,9 @@ public static class DependencyInjection
         services.AddScoped<IAlertEscalationService, AlertEscalationService>();
         services.AddScoped<IHealthAssessmentService, HealthAssessmentService>();
         services.AddScoped<IReportService, ReportService>();
+        services.AddScoped<IHabitatService, HabitatService>();
+        services.AddScoped<IWellnessService, WellnessService>();
+        services.AddScoped<IHazardService, HazardService>();
 
         return services;
     }

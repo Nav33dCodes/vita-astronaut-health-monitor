@@ -14,6 +14,7 @@ public sealed record VitalReadingResponse(
     decimal BodyTemperatureC,
     int RespiratoryRatePerMin,
     decimal RadiationDoseMsv,
+    decimal? RadiationDoseRateMsvPerDay,
     string? Notes,
     int EarlyWarningScore,
     EarlyWarningRisk EarlyWarningRisk)
@@ -23,7 +24,7 @@ public sealed record VitalReadingResponse(
         var ews = Domain.Vitals.EarlyWarningScore.Calculate(r);
         return new VitalReadingResponse(
             r.Id, r.AstronautId, r.RecordedAtUtc, r.HeartRateBpm, r.SystolicMmHg, r.DiastolicMmHg,
-            r.OxygenSaturationPct, r.BodyTemperatureC, r.RespiratoryRatePerMin, r.RadiationDoseMsv, r.Notes,
+            r.OxygenSaturationPct, r.BodyTemperatureC, r.RespiratoryRatePerMin, r.RadiationDoseMsv, r.RadiationDoseRateMsvPerDay, r.Notes,
             ews.Score, ews.Risk);
     }
 }
@@ -37,7 +38,8 @@ public sealed record RecordVitalsRequest(
     int RespiratoryRatePerMin,
     decimal RadiationDoseMsv,
     DateTimeOffset? RecordedAtUtc = null,
-    string? Notes = null);
+    string? Notes = null,
+    decimal? RadiationDoseRateMsvPerDay = null);
 
 public sealed record RecordVitalsResponse(VitalReadingResponse Reading, IReadOnlyList<AlertResponse> RaisedAlerts);
 
@@ -69,7 +71,8 @@ public sealed record VitalSeriesPoint(
     decimal OxygenSaturationPct,
     decimal BodyTemperatureC,
     decimal RespiratoryRatePerMin,
-    decimal RadiationDoseMsv);
+    decimal RadiationDoseMsv,
+    decimal? RadiationDoseRateMsvPerDay);
 
 public sealed record VitalSeriesResponse(
     Guid AstronautId,

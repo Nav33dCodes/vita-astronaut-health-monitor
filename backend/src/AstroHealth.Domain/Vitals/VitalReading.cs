@@ -28,7 +28,8 @@ public sealed class VitalReading : Entity
         decimal bodyTemperatureC,
         int respiratoryRatePerMin,
         decimal radiationDoseMsv,
-        string? notes = null)
+        string? notes = null,
+        decimal? radiationDoseRateMsvPerDay = null)
     {
         AstronautId = astronautId;
         RecordedAtUtc = recordedAtUtc;
@@ -39,6 +40,7 @@ public sealed class VitalReading : Entity
         BodyTemperatureC = bodyTemperatureC;
         RespiratoryRatePerMin = respiratoryRatePerMin;
         RadiationDoseMsv = radiationDoseMsv;
+        RadiationDoseRateMsvPerDay = radiationDoseRateMsvPerDay;
         Notes = notes;
     }
 
@@ -54,6 +56,13 @@ public sealed class VitalReading : Entity
     /// <summary>Radiation dose absorbed since the previous reading, in millisieverts.</summary>
     public decimal RadiationDoseMsv { get; private set; }
 
+    /// <summary>
+    /// Personal dosimeter dose rate at the time of the reading, mSv/day. Radiation limits are
+    /// judged on the rate (and on the accumulated mission dose), not on a single increment.
+    /// Null when the source did not report a rate (manual entries, older data).
+    /// </summary>
+    public decimal? RadiationDoseRateMsvPerDay { get; private set; }
+
     public string? Notes { get; private set; }
 
     public decimal ValueOf(VitalMetric metric) => metric switch
@@ -64,7 +73,7 @@ public sealed class VitalReading : Entity
         VitalMetric.OxygenSaturation => OxygenSaturationPct,
         VitalMetric.BodyTemperature => BodyTemperatureC,
         VitalMetric.RespiratoryRate => RespiratoryRatePerMin,
-        VitalMetric.RadiationDose => RadiationDoseMsv,
+        VitalMetric.RadiationDose => RadiationDoseRateMsvPerDay ?? 0m,
         _ => throw new ArgumentOutOfRangeException(nameof(metric), metric, null)
     };
 }

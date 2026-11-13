@@ -1,5 +1,6 @@
 using AstroHealth.Domain.Alerts;
 using AstroHealth.Domain.Astronauts;
+using AstroHealth.Domain.Hazards;
 using AstroHealth.Domain.Missions;
 using AstroHealth.Domain.Vitals;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +14,8 @@ public interface IAppDbContext
     DbSet<VitalReading> VitalReadings { get; }
     DbSet<VitalRollup> VitalRollups { get; }
     DbSet<HealthAlert> HealthAlerts { get; }
+    DbSet<HabitatReading> HabitatReadings { get; }
+    DbSet<WellnessEntry> WellnessEntries { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

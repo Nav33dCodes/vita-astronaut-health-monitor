@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { AlertList } from "@/components/alerts/alert-list";
+import { RadiationBudgetBar } from "@/components/hazards/radiation-budget";
 import { AssessmentPanel } from "@/components/monitor/early-warning";
 import { CrewAvatar } from "@/components/ui/avatar";
 import { HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
@@ -16,7 +17,7 @@ import { ExportMenu } from "@/components/ui/export-menu";
 import { LiveValue } from "@/components/ui/live-value";
 import { Pager } from "@/components/ui/pager";
 import { Button, Card, CardTitle, Count, EmptyState, ErrorState, IconButton, Segmented, Skeleton } from "@/components/ui/primitives";
-import { useAlerts, useAstronaut, useDeleteAstronaut, useThresholds, useVitalSeries, useVitalStats } from "@/lib/api/queries";
+import { useAlerts, useAstronaut, useDeleteAstronaut, useHazards, useThresholds, useVitalSeries, useVitalStats } from "@/lib/api/queries";
 import type { Alert, AstronautDetail, Threshold, VitalReading } from "@/lib/api/types";
 import { formatDate, humanize, timeAgo } from "@/lib/format";
 import { useLiveVitals } from "@/lib/realtime/hooks";
@@ -24,6 +25,7 @@ import { useIsLive } from "@/lib/realtime/store";
 import { reports } from "@/lib/reports";
 import { METRIC_VALUE, classify, describeRange } from "@/lib/vitals";
 import { RecordVitalsForm } from "./record-vitals-form";
+import { WellnessPanel } from "./wellness-panel";
 import { VitalsChart } from "./vitals-chart";
 
 const WINDOWS = [
@@ -32,7 +34,7 @@ const WINDOWS = [
   { value: 168, label: "7d" },
 ];
 
-type Tab = "overview" | "trends" | "alerts";
+type Tab = "overview" | "trends" | "wellness" | "alerts";
 
 export function AstronautProfile() {
   const { id } = useParams<{ id: string }>();
@@ -136,6 +138,7 @@ function ProfileView({ astronaut: a }: { astronaut: AstronautDetail }) {
           [
             ["overview", "Overview", null],
             ["trends", "Trends", null],
+            ["wellness", "Wellness", null],
             ["alerts", "Alerts", a.openAlerts > 0 ? a.openAlerts : null],
           ] as const
         ).map(([value, label, count]) => (
@@ -157,6 +160,7 @@ function ProfileView({ astronaut: a }: { astronaut: AstronautDetail }) {
 
       <div key={tab} className="animate-page-in">
         {tab === "overview" && <OverviewTab astronaut={a} latest={latest} thresholds={thresholds.data} />}
+        {tab === "wellness" && <WellnessPanel astronautId={a.id} name={`${a.firstName} ${a.lastName}`} />}
         {tab === "trends" && <TrendsTab astronautId={a.id} hours={hours} setHours={setHours} thresholds={thresholds.data ?? []} />}
         {tab === "alerts" && (
           <Card>
@@ -230,10 +234,9 @@ function OverviewTab({
   thresholds: Threshold[] | undefined;
 }) {
   const stats = useVitalStats(a.id, 24);
+  const hazards = useHazards();
   const thresholdOf = (metric: Threshold["metric"]) => thresholds?.find((t) => t.metric === metric);
-  // The gauge spans up to the critical radiation limit served by the API.
-  const radiationMax = thresholdOf("RadiationDose")?.criticalHigh ?? 0;
-  const dose24h = stats.data?.totalRadiationMsv ?? 0;
+  const radiation = hazards.data?.missions.flatMap((m) => m.crew).find((c) => c.astronautId === a.id)?.radiation;
 
   return (
     <div className="space-y-4">
@@ -262,27 +265,28 @@ function OverviewTab({
         </Card>
 
         <Card className="lg:col-span-5">
-          <CardTitle description="Last 24 hours">Life support</CardTitle>
+          <CardTitle description="Blood oxygen and mission radiation exposure">Life support</CardTitle>
           {latest && thresholds ? (
-            <div className="grid grid-cols-2 gap-2">
-              <RadialGauge
-                label="SpO₂"
-                unit="%"
-                value={latest.oxygenSaturationPct}
-                min={80}
-                max={100}
-                decimals={1}
-                status={classify(latest.oxygenSaturationPct, thresholdOf("OxygenSaturation"))}
-              />
-              <RadialGauge
-                label="Radiation dose"
-                unit="mSv"
-                value={dose24h}
-                min={0}
-                max={radiationMax}
-                decimals={2}
-                status={classify(dose24h, thresholdOf("RadiationDose"))}
-              />
+            <div className="space-y-5">
+              <div className="flex justify-center">
+                <RadialGauge
+                  label="SpO₂"
+                  unit="%"
+                  value={latest.oxygenSaturationPct}
+                  min={80}
+                  max={100}
+                  decimals={1}
+                  status={classify(latest.oxygenSaturationPct, thresholdOf("OxygenSaturation"))}
+                />
+              </div>
+              {radiation ? (
+                <div>
+                  <p className="mb-2 text-[12px] font-medium text-muted">Radiation · career limit</p>
+                  <RadiationBudgetBar budget={radiation} />
+                </div>
+              ) : (
+                <p className="text-[12.5px] text-muted">Radiation budget is tracked while on an active mission.</p>
+              )}
             </div>
           ) : (
             <EmptyState title="Awaiting telemetry" />

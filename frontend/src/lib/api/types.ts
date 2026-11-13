@@ -99,6 +99,8 @@ export interface VitalReading {
   bodyTemperatureC: number;
   respiratoryRatePerMin: number;
   radiationDoseMsv: number;
+  /** Personal dosimeter rate, mSv/day (null for manual entries and older data). */
+  radiationDoseRateMsvPerDay: number | null;
   notes: string | null;
   earlyWarningScore: number;
   earlyWarningRisk: EarlyWarningRisk;
@@ -114,6 +116,7 @@ export interface RecordVitalsRequest {
   radiationDoseMsv: number;
   recordedAtUtc?: string | null;
   notes?: string | null;
+  radiationDoseRateMsvPerDay?: number | null;
 }
 
 export interface RecordVitalsResponse {
@@ -148,6 +151,7 @@ export interface VitalSeriesPoint {
   bodyTemperatureC: number;
   respiratoryRatePerMin: number;
   radiationDoseMsv: number;
+  radiationDoseRateMsvPerDay: number | null;
 }
 
 export interface VitalSeries {
@@ -268,4 +272,138 @@ export interface EarlyWarningScoring {
   mediumRiskFrom: number;
   highRiskFrom: number;
   parameters: { metric: VitalMetric; label: string; unit: string; bands: { range: string; points: number }[] }[];
+}
+
+// ---- Five hazards of human spaceflight (NASA HRP) -----------------------------------------
+
+export type SpaceHazard =
+  | "SpaceRadiation"
+  | "IsolationAndConfinement"
+  | "DistanceFromEarth"
+  | "GravityFields"
+  | "HostileClosedEnvironments";
+export type HabitatMetric = "CarbonDioxide" | "Oxygen" | "CabinPressure" | "CabinTemperature" | "Humidity" | "RadiationDoseRate";
+export type AutonomyLevel = "EarthSupported" | "EarthIndependent";
+
+export interface HabitatFinding {
+  metric: HabitatMetric;
+  status: HealthStatus;
+  value: number;
+  message: string;
+}
+
+export interface HabitatReading {
+  id: string;
+  missionId: string;
+  recordedAtUtc: string;
+  carbonDioxideMmHg: number;
+  oxygenPct: number;
+  cabinPressureKpa: number;
+  cabinTemperatureC: number;
+  humidityPct: number;
+  radiationDoseRateMsvPerDay: number;
+  status: HealthStatus;
+  findings: HabitatFinding[];
+}
+
+export interface HabitatThreshold {
+  metric: HabitatMetric;
+  label: string;
+  unit: string;
+  warningLow: number | null;
+  warningHigh: number | null;
+  criticalLow: number | null;
+  criticalHigh: number | null;
+}
+
+export interface HabitatUpdatedEvent {
+  reading: HabitatReading;
+  missionName: string;
+}
+
+export interface HazardStatus {
+  hazard: SpaceHazard;
+  status: HealthStatus;
+  headline: string;
+  detail: string | null;
+}
+
+export interface RadiationBudget {
+  missionDoseMsv: number;
+  careerLimitMsv: number;
+  percentOfLimit: number;
+  currentRateMsvPerDay: number | null;
+  daysToLimitAtCurrentRate: number | null;
+}
+
+export interface CrewHazards {
+  astronautId: string;
+  name: string;
+  role: CrewRole;
+  overall: HealthStatus;
+  radiation: RadiationBudget;
+  hazards: HazardStatus[];
+}
+
+export interface MissionHazards {
+  missionId: string;
+  name: string;
+  destination: MissionDestination;
+  elapsedDays: number;
+  communicationDelay: { oneWayMinSeconds: number; oneWayMaxSeconds: number; autonomy: AutonomyLevel };
+  habitat: HabitatReading | null;
+  crew: CrewHazards[];
+}
+
+export interface HazardSummary {
+  hazard: SpaceHazard;
+  worst: HealthStatus;
+  critical: number;
+  caution: number;
+  nominal: number;
+  unknown: number;
+}
+
+export interface HazardOverview {
+  generatedAtUtc: string;
+  summary: HazardSummary[];
+  missions: MissionHazards[];
+}
+
+export interface PlaybookEntry {
+  key: string;
+  title: string;
+  hazard: SpaceHazard;
+  hrpRisk: string;
+  steps: string[];
+}
+
+export interface WellnessEntry {
+  date: string;
+  sleepHours: number;
+  sleepEfficiencyPct: number;
+  activeMinutes: number;
+  lightExposureHours: number;
+  mood: number | null;
+  stress: number | null;
+  workload: number | null;
+  checkInNote: string | null;
+  checkedInAtUtc: string | null;
+}
+
+export interface Wellness {
+  astronautId: string;
+  days: number;
+  averageSleepHours: number | null;
+  status: HealthStatus;
+  findings: { status: HealthStatus; message: string }[];
+  /** Newest first. */
+  entries: WellnessEntry[];
+}
+
+export interface WellnessCheckInRequest {
+  mood: number;
+  stress: number;
+  workload: number;
+  note?: string | null;
 }

@@ -1,4 +1,5 @@
 using AstroHealth.Application.Alerts;
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Vitals;
 
 namespace AstroHealth.Application.Abstractions;
@@ -13,6 +14,7 @@ public interface ITelemetryPublisher
     Task AlertRaisedAsync(AlertResponse alert, CancellationToken ct = default);
     Task AlertUpdatedAsync(AlertResponse alert, CancellationToken ct = default);
     Task AlertEscalatedAsync(AlertResponse alert, CancellationToken ct = default);
+    Task HabitatUpdatedAsync(HabitatUpdatedEvent @event, CancellationToken ct = default);
 }
 
 /// <summary>Default no-op publisher, used when no real-time transport is configured.</summary>
@@ -22,4 +24,5 @@ internal sealed class NullTelemetryPublisher : ITelemetryPublisher
     public Task AlertRaisedAsync(AlertResponse alert, CancellationToken ct = default) => Task.CompletedTask;
     public Task AlertUpdatedAsync(AlertResponse alert, CancellationToken ct = default) => Task.CompletedTask;
     public Task AlertEscalatedAsync(AlertResponse alert, CancellationToken ct = default) => Task.CompletedTask;
+    public Task HabitatUpdatedAsync(HabitatUpdatedEvent @event, CancellationToken ct = default) => Task.CompletedTask;
 }

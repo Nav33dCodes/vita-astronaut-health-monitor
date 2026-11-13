@@ -129,7 +129,7 @@ internal static class ExcelReports
             (VitalMetric.OxygenSaturation, "SpO2 (%)", 11, "0.0"),
             (VitalMetric.BodyTemperature, "Temperature (°C)", 15, "0.0"),
             (VitalMetric.RespiratoryRate, "Respiration (/min)", 16, "0"),
-            (VitalMetric.RadiationDose, "Radiation (mSv)", 15, "0.0000")
+            (VitalMetric.RadiationDose, "Dose rate (mSv/day)", 18, "0.000")
         };
 
         string[] headers = ["Recorded (UTC)", .. metrics.Select(m => m.Header), "EWS", "Risk", "Notes"];

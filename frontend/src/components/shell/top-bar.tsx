@@ -2,12 +2,13 @@
 
 import clsx from "clsx";
 import { useQuery } from "@tanstack/react-query";
-import { BellRing, ChevronRight, Menu, Search, Siren, WifiOff } from "lucide-react";
+import { BellRing, ChevronRight, Menu, Radio, Search, Siren, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
 import { IconButton, Kbd } from "@/components/ui/primitives";
-import { queries, useDashboard } from "@/lib/api/queries";
+import { queries, useDashboard, useHazards } from "@/lib/api/queries";
+import { formatSignalDelay } from "@/lib/hazards";
 import { useHydrated } from "@/lib/hooks";
 import { navItemFor } from "@/lib/navigation";
 import { useOnline } from "@/lib/online";
@@ -44,6 +45,7 @@ export function TopBar({ onOpenPalette, onOpenNav }: { onOpenPalette: () => void
 
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
           <LinkPill />
+          <SignalDelay />
           <UtcClock />
 
           <button
@@ -119,6 +121,29 @@ function LinkPill() {
       />
       {live ? "Live" : link.state === "disconnected" ? "Offline" : "Connecting"}
       {live && link.latencyMs !== null && <span className="tnum font-normal text-faint">{link.latencyMs}ms</span>}
+    </Link>
+  );
+}
+
+/** One-way radio delay to the longest-running mission: the "distance from Earth" hazard at a glance. */
+function SignalDelay() {
+  const hazards = useHazards();
+  const hydrated = useHydrated();
+  const mission = hydrated ? hazards.data?.missions[0] : undefined;
+  if (!mission) return null;
+  const independent = mission.communicationDelay.autonomy === "EarthIndependent";
+  return (
+    <Link
+      href="/hazards"
+      title={`One-way signal delay to ${mission.name}${independent ? ": Earth-independent operations" : ""}`}
+      className={clsx(
+        "hidden h-8 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] transition-colors hover:bg-overlay/[0.05] 2xl:flex",
+        independent ? "text-caution" : "text-muted",
+      )}
+    >
+      <Radio className="size-3.5" aria-hidden />
+      <span className="font-medium text-faint">Earth</span>
+      <span className="tnum font-medium text-ink">{formatSignalDelay(mission.communicationDelay)}</span>
     </Link>
   );
 }

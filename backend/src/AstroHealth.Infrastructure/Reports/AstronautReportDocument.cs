@@ -117,7 +117,7 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
                         column.Item().Text(t.Label.ToUpperInvariant()).FontSize(6).SemiBold().LetterSpacing(0.08f).FontColor(C(Muted));
                         column.Item().PaddingTop(2).Text(text =>
                         {
-                            text.Span(Number(value, t.Metric == VitalMetric.RadiationDose ? 4 : 1)).FontSize(15).Bold()
+                            text.Span(Number(value, t.Metric == VitalMetric.RadiationDose ? 2 : 1)).FontSize(15).Bold()
                                 .FontColor(C(tone == Tone.Neutral ? Ink : Palette(tone).Fg));
                             text.Span(" " + DisplayUnit(t.Unit)).FontSize(7).FontColor(C(Muted));
                         });
@@ -193,7 +193,7 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
             {
                 var m = rows[i];
                 var t = _thresholds.GetValueOrDefault(m.Metric);
-                var decimals = m.Metric == VitalMetric.RadiationDose ? 4 : 1;
+                var decimals = m.Metric == VitalMetric.RadiationDose ? 2 : 1;
                 IContainer Cell() => BodyCell(table.Cell(), i % 2 == 1);
 
                 Cell().Text(t?.Label ?? Humanize(m.Metric)).SemiBold();

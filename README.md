@@ -30,7 +30,7 @@ Long-duration missions expose crews to radiation, isolation, altered gravity and
 
 ## Our solution
 
-VITA is a mission-control platform that streams every astronaut's vitals in real time, checks each reading against clinical safe ranges, and turns raw telemetry into clear, prioritised action.
+VITA is a mission-control platform that streams every astronaut's vitals in real time, checks each reading against clinical safe ranges, and turns raw telemetry into clear, prioritised action. It is organised around the **five hazards of human spaceflight** identified by NASA's Human Research Program: space radiation, isolation and confinement, distance from Earth, gravity fields, and hostile or closed environments.
 
 | | |
 |---|---|
@@ -56,16 +56,29 @@ The interface follows one rule: **calm by default, loud only when it matters.** 
 
 | Page | What it is for |
 |---|---|
-| **Overview** | Summary cards, the live crew vitals table, the action queue, the fleet trend chart, trend watch and the activity feed. |
+| **Overview** | Summary cards, the five-hazards strip, the live crew vitals table, the action queue, the fleet trend chart, trend watch and the activity feed. |
+| **Hazards** | Every crew member assessed against the five NASA hazards, live cabin environment per spacecraft, signal delay to Earth and onboard checklists. |
 | **Live monitor** | One bedside-style tile per crew member, with auto-cycling and a full-screen wall mode. |
 | **Alerts** | The alert console: status and severity filters, multi-select, and bulk acknowledge or resolve. |
 | **Event log** | Every real-time message this session. You can pause it, search it and export it to CSV. |
-| **Crew** | The roster in table or card view, plus a profile per astronaut with Overview, Trends and Alerts tabs. |
+| **Crew** | The roster in table or card view, plus a profile per astronaut with Overview, Trends, Wellness and Alerts tabs. |
 | **Missions** | Missions with their elapsed-time clocks, crew and status. |
 | **Protocols** | Reference ranges, alert rules and the early-warning scoring table, rendered from the live API. |
 | **System status** | Health of the API, the real-time uplink, the server and the telemetry source. |
 
 ## Features
+
+### The five hazards of human spaceflight
+
+| Hazard (NASA HRP) | What VITA monitors |
+|---|---|
+| **Space radiation** | Personal dosimeter **dose rate** (mSv/day), the cabin area monitor, and the **mission dose against NASA's 600 mSv career limit**, with days remaining at the current rate. Solar particle events raise a critical alert with a storm-shelter checklist. |
+| **Isolation and confinement** | Nightly **wrist actigraphy** (sleep, efficiency, activity, light exposure), modelled on NASA's ARCHeR study on Artemis II, plus a daily **mood, stress and workload check-in**. Sleep debt and low mood are flagged. |
+| **Distance from Earth** | One-way **signal delay** per destination (Moon about 1.3 s, Mars 3 to 22 min). Beyond the Moon, VITA switches to **Earth-independent operations**: every alert carries an **onboard first-response checklist**. |
+| **Gravity fields** | Heart rate and blood pressure against safe ranges (cardiovascular adaptation) and days spent in reduced gravity. |
+| **Hostile and closed environments** | Live **cabin CO₂, oxygen, pressure, temperature and humidity** per spacecraft, plus each crew member's blood oxygen (hypoxia). |
+
+The Protocols page maps every NASA HRP risk to the VITA feature that covers it and lists all sources.
 
 ### Monitoring
 - **Live crew vitals table.** Shows heart rate, SpO₂, blood pressure, temperature, respiration, early-warning score and a 10-minute heart-rate trace for every crew member. A cell is highlighted briefly when its value changes, and any value outside its safe range takes its status colour. You can sort the columns and filter to "Needs attention".
@@ -77,6 +90,7 @@ The interface follows one rule: **calm by default, loud only when it matters.** 
 - **Reference ranges** based on NASA-STD-3001 for seven vital signs.
 - **Early Warning Score** adapted from NEWS2, on a 0–15 scale.
 - **Trend watch.** Fits a line to each vital over the last 60 minutes, flags only sustained drift, and estimates when a safe limit will be crossed.
+- **Radiation judged correctly.** Limits apply to the dose *rate* and the accumulated mission dose, not to a single reading. Background rates are calibrated to published measurements (ISS about 0.5, lunar surface about 1.4, deep space about 1.8 mSv/day).
 
 ### Alerting and escalation
 - Every alert follows an `Open → Acknowledged → Resolved` lifecycle. Repeat findings are de-duplicated, and an alert that worsens raises a new one.
@@ -100,7 +114,7 @@ The interface follows one rule: **calm by default, loud only when it matters.** 
 | Keys | Action |
 |---|---|
 | `Ctrl/⌘ K` or `/` | Open the command palette |
-| `G` then `O` / `M` / `A` / `E` | Go to Overview / Live monitor / Alerts / Event log |
+| `G` then `O` / `M` / `H` / `A` / `E` | Go to Overview / Live monitor / Hazards / Alerts / Event log |
 | `G` then `C` / `I` | Go to Crew / Missions |
 | `G` then `P` / `S` | Go to Protocols / System status |
 | `[` | Collapse or expand the sidebar |
@@ -141,7 +155,8 @@ The backend follows **Clean Architecture**. The clinical rules live in a domain 
 ```
 backend/
   src/
-    AstroHealth.Domain           Entities, health evaluator, early-warning score, trend analysis
+    AstroHealth.Domain           Entities, health evaluator, early-warning score, trend analysis,
+                                 five hazards: space environment, habitat, wellness, crew playbook
     AstroHealth.Application      Use cases, contracts, validation, escalation, report assembly
     AstroHealth.Infrastructure   EF Core (PostgreSQL / SQLite), migrations, background services, PDF/Excel rendering
     AstroHealth.Api              Minimal APIs, SignalR hub, caching, ProblemDetails, rate limiting
@@ -152,6 +167,7 @@ frontend/src/
   components/
     shell/                       Sidebar, top bar, wordmark, command palette, shortcuts, settings
     overview/                    Crew vitals table, fleet trend
+    hazards/                     Hazard matrix and summary, cabin environment, radiation budget, onboard checklists
     ui/                          Design-system primitives: buttons, inputs, dialogs, drawer, popover, badges, charts
     alerts/ crew/ monitor/ …     Feature components
   lib/                           API client and queries, real-time store, theme and preferences, vitals helpers
@@ -247,10 +263,11 @@ REST endpoints are versioned under `/api/v1`. The full interactive reference is 
 | Vitals | `GET·POST /astronauts/{id}/vitals` · `GET …/vitals/series` · `GET …/vitals/stats` · `GET /telemetry/snapshot` |
 | Alerts | `GET /alerts` · `POST /alerts/{id}/acknowledge` · `POST /alerts/{id}/resolve` |
 | Early warning | `GET /assessments` · `GET /astronauts/{id}/assessment` · `GET /early-warning/scoring` |
+| Hazards | `GET /hazards` · `GET /hazards/playbook` · `GET /habitat/thresholds` · `GET·POST /missions/{id}/habitat` · `GET /astronauts/{id}/wellness` · `POST /astronauts/{id}/wellness/check-in` |
 | Missions | `GET·POST /missions` · `GET·PUT·DELETE /missions/{id}` · `PATCH /missions/{id}/status` |
 | Reports | `GET /reports/fleet.pdf` · `/reports/crew.xlsx` · `/reports/alerts.xlsx` · `/reports/astronauts/{id}.pdf` · `/reports/astronauts/{id}/vitals.xlsx` |
 | System | `GET /system/status` · `GET /vitals/thresholds` · `/health/live` · `/health/ready` |
-| Real-time | SignalR hub at `/hubs/telemetry`, with the events `ReadingRecorded`, `AlertRaised`, `AlertUpdated` and `AlertEscalated` |
+| Real-time | SignalR hub at `/hubs/telemetry`, with the events `ReadingRecorded`, `HabitatUpdated`, `AlertRaised`, `AlertUpdated` and `AlertEscalated` |
 
 ## Testing
 
@@ -266,18 +283,30 @@ npm run lint
 npm run build
 ```
 
-The backend tests cover the clinical rules, the early-warning score, trend detection, escalation, data retention, real-time events, HTTP caching and report generation.
+The backend tests cover the clinical rules, the early-warning score, trend detection, escalation, data retention, real-time events, HTTP caching, report generation, and the five-hazards logic (radiation dose rate and mission dose, cabin limits, sleep debt and check-ins, signal delay and onboard checklists).
 
 ## Roadmap
 
 - Authentication with role-based access (flight surgeon, commander, crew) and a full audit trail
-- An ingestion endpoint for real wearable sensors
+- An ingestion endpoint for real wearable sensors and dosimeters
+- EVA (spacewalk) mode: suit pressure, oxygen and CO₂ with decompression-sickness risk
+- Exercise countermeasure logging for bone and muscle loss
 - Docker Compose and a CI pipeline
-- Saved table views and a fleet-wide heatmap
+
+## Sources
+
+- NASA Human Research Program: [the five hazards of human spaceflight](https://www.nasa.gov/hrp/hazards/), the risks of human spaceflight and the [Human Research Roadmap](https://www.nasa.gov/hrp/)
+- NASA Human Research Program: ARCHeR (activity, sleep and light monitoring on Artemis II)
+- Canadian Space Agency (2026): Canadian Active Neutron Spectrometer (CANS), radiation monitoring for astronaut health
+- NASA-STD-3001 Volume 1, Rev B (2022): crew health standards, including the 600 mSv career dose limit
+- Zeitlin et al., *Science* (2013): radiation in transit to Mars measured by Curiosity RAD (about 1.8 mSv/day)
+- Zhang et al., *Science Advances* (2020): first radiation dose measurements on the lunar surface by Chang'e 4 LND (about 1.4 mSv/day)
+
+NASA does not endorse any non-U.S. Government entity and is not responsible for information on non-U.S. Government websites.
 
 ## Disclaimer
 
-VITA is a hackathon prototype for demonstration purposes. Its reference ranges are loosely based on NASA-STD-3001, and its early-warning score is adapted from NEWS2 (Royal College of Physicians). **It is not a medical device and must not be used for clinical decisions.**
+VITA is a hackathon prototype for demonstration purposes. Its reference ranges are loosely based on NASA-STD-3001, its early-warning score is adapted from NEWS2 (Royal College of Physicians), and its onboard checklists are illustrative. Telemetry is simulated, calibrated to the published figures above. **It is not a medical device and must not be used for clinical decisions.**
 
 <div align="center">
 <sub>Built for the 2026 NASA Space Apps Challenge · <i>The Next Frontier</i></sub>

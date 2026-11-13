@@ -11,6 +11,7 @@ export type VitalSample = Pick<
   | "bodyTemperatureC"
   | "respiratoryRatePerMin"
   | "radiationDoseMsv"
+  | "radiationDoseRateMsvPerDay"
 >;
 
 export const METRIC_VALUE: Record<VitalMetric, (r: VitalSample) => number> = {
@@ -20,7 +21,7 @@ export const METRIC_VALUE: Record<VitalMetric, (r: VitalSample) => number> = {
   OxygenSaturation: (r) => r.oxygenSaturationPct,
   BodyTemperature: (r) => r.bodyTemperatureC,
   RespiratoryRate: (r) => r.respiratoryRatePerMin,
-  RadiationDose: (r) => r.radiationDoseMsv,
+  RadiationDose: (r) => r.radiationDoseRateMsvPerDay ?? 0,
 };
 
 /** Client-side mirror of the backend HealthEvaluator, for colouring values only. */

@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using AstroHealth.Application.Abstractions;
 using AstroHealth.Application.Alerts;
 using AstroHealth.Application.Astronauts;
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Vitals;
 using AstroHealth.Domain.Alerts;
 using AstroHealth.Domain.Astronauts;
@@ -22,6 +23,7 @@ public sealed class RecordingPublisher : ITelemetryPublisher
     public Task AlertRaisedAsync(AlertResponse alert, CancellationToken ct = default) => Add(("raised", alert));
     public Task AlertUpdatedAsync(AlertResponse alert, CancellationToken ct = default) => Add(("updated", alert));
     public Task AlertEscalatedAsync(AlertResponse alert, CancellationToken ct = default) => Add(("escalated", alert));
+    public Task HabitatUpdatedAsync(HabitatUpdatedEvent @event, CancellationToken ct = default) => Add(@event);
 
     private Task Add(object e)
     {

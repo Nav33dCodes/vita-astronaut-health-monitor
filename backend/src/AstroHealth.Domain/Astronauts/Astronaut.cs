@@ -52,6 +52,12 @@ public sealed class Astronaut : Entity, IAuditable
     public IReadOnlyCollection<VitalReading> Readings => _readings;
     public IReadOnlyCollection<HealthAlert> Alerts => _alerts;
 
+    /// <summary>
+    /// Radiation dose accumulated on the current mission, mSv. Null until the first dosimeter
+    /// reading of the mission, when it is initialised from the mission's elapsed time.
+    /// </summary>
+    public decimal? MissionDoseMsv { get; private set; }
+
     public DateTimeOffset CreatedAtUtc { get; set; }
     public DateTimeOffset? UpdatedAtUtc { get; set; }
 
@@ -62,7 +68,18 @@ public sealed class Astronaut : Entity, IAuditable
         Agency = agency;
         Role = role;
         DateOfBirth = dateOfBirth;
+        if (missionId != MissionId)
+        {
+            MissionDoseMsv = null; // a new mission starts a new dose record
+        }
+
         MissionId = missionId;
+    }
+
+    /// <summary>Adds a dosimeter increment, starting the record from an estimate if needed.</summary>
+    public void AccrueDose(decimal doseMsv, Func<decimal> initialEstimate)
+    {
+        MissionDoseMsv = (MissionDoseMsv ?? initialEstimate()) + Math.Max(0, doseMsv);
     }
 }
 

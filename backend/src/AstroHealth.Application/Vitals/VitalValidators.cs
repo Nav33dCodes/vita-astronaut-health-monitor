@@ -14,7 +14,9 @@ public sealed class RecordVitalsRequestValidator : AbstractValidator<RecordVital
         RuleFor(x => x.OxygenSaturationPct).InclusiveBetween(50, 100).PrecisionScale(5, 2, true);
         RuleFor(x => x.BodyTemperatureC).InclusiveBetween(30, 45).PrecisionScale(4, 2, true);
         RuleFor(x => x.RespiratoryRatePerMin).InclusiveBetween(4, 60);
-        RuleFor(x => x.RadiationDoseMsv).InclusiveBetween(0, 1000).PrecisionScale(9, 4, true);
+        RuleFor(x => x.RadiationDoseMsv).InclusiveBetween(0, 1000).PrecisionScale(12, 6, true);
+        RuleFor(x => x.RadiationDoseRateMsvPerDay).InclusiveBetween(0, 10000).PrecisionScale(9, 3, true)
+            .When(x => x.RadiationDoseRateMsvPerDay is not null);
         RuleFor(x => x.Notes).MaximumLength(500);
         RuleFor(x => x.RecordedAtUtc)
             .Must(t => t <= clock.GetUtcNow().AddMinutes(5))

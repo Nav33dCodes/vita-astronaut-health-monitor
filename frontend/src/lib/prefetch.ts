@@ -25,6 +25,7 @@ const ROUTE_DATA: Record<string, (client: QueryClient) => Promise<unknown>[]> = 
     c.prefetchQuery(queries.fleetAssessments()),
     c.prefetchQuery(queries.telemetrySnapshot()),
   ],
+  "/hazards": (c) => [c.prefetchQuery(queries.hazards()), c.prefetchQuery(queries.habitatThresholds()), c.prefetchQuery(queries.playbook())],
   "/monitor": (c) => [
     c.prefetchQuery(queries.missions()),
     c.prefetchQuery(queries.astronauts({ pageSize: 100 })),

@@ -19,7 +19,8 @@ internal static class EndpointRegistration
             .MapAlertEndpoints()
             .MapAssessmentEndpoints()
             .MapReportEndpoints()
-            .MapSystemEndpoints();
+            .MapSystemEndpoints()
+            .MapHazardEndpoints();
 
         return app;
     }

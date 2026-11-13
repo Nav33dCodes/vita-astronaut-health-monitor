@@ -21,6 +21,8 @@ public sealed record HealthFinding(VitalMetric Metric, AlertSeverity Severity, d
 public static class HealthEvaluator
 {
     // Reference ranges loosely based on NASA crew health standards (NASA-STD-3001).
+    // Radiation is judged on the dosimeter dose rate: background is about 0.5 mSv/day on the ISS
+    // and about 1.8 mSv/day in deep space, so sustained rates above that signal a solar particle event.
     public static readonly IReadOnlyList<MetricThreshold> Thresholds =
     [
         new(VitalMetric.HeartRate, "Heart rate", "bpm", 50, 110, 40, 140),
@@ -29,7 +31,7 @@ public static class HealthEvaluator
         new(VitalMetric.OxygenSaturation, "Oxygen saturation", "%", 94, null, 90, null),
         new(VitalMetric.BodyTemperature, "Body temperature", "C", 35.5m, 37.8m, 35.0m, 39.0m),
         new(VitalMetric.RespiratoryRate, "Respiratory rate", "breaths/min", 10, 22, 8, 30),
-        new(VitalMetric.RadiationDose, "Radiation dose", "mSv", null, 1.0m, null, 5.0m)
+        new(VitalMetric.RadiationDose, "Radiation dose rate", "mSv/day", null, 2.5m, null, 10.0m)
     ];
 
     public static IReadOnlyList<HealthFinding> Evaluate(VitalReading reading)
@@ -38,6 +40,12 @@ public static class HealthEvaluator
 
         foreach (var threshold in Thresholds)
         {
+            // No rate reported means nothing to judge (a zero would read as "safe" by accident).
+            if (threshold.Metric == VitalMetric.RadiationDose && reading.RadiationDoseRateMsvPerDay is null)
+            {
+                continue;
+            }
+
             var finding = Check(threshold, reading.ValueOf(threshold.Metric));
             if (finding is not null)
             {

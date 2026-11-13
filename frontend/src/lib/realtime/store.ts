@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Alert, VitalReading } from "@/lib/api/types";
+import type { Alert, HabitatReading, VitalReading } from "@/lib/api/types";
 
 /*
  * Client-side real-time state, fed by the SignalR connection.
@@ -57,6 +57,10 @@ export const linkStore = createStore<LinkStatus>(INITIAL_STATUS);
 export const eventStore = createStore<TelemetryEvent[]>([]);
 export const liveStore = createStore<Record<string, VitalReading[]>>({});
 
+/** Cabin environment pushed over SignalR, per mission (last MAX_HABITAT_READINGS). */
+export const habitatStore = createStore<Record<string, HabitatReading[]>>({});
+const MAX_HABITAT_READINGS = 180;
+
 /** Escalated alerts waiting for the operator to deal with the master-alarm popup. */
 export const alarmStore = createStore<Alert[]>([]);
 
@@ -85,6 +89,12 @@ export function recordLiveReading(reading: VitalReading) {
   const existing = all[reading.astronautId] ?? [];
   const next = [...existing, reading];
   liveStore.set({ ...all, [reading.astronautId]: next.length > MAX_LIVE_READINGS ? next.slice(-MAX_LIVE_READINGS) : next });
+}
+
+export function recordHabitat(reading: HabitatReading) {
+  const all = habitatStore.get();
+  const next = [...(all[reading.missionId] ?? []), reading];
+  habitatStore.set({ ...all, [reading.missionId]: next.length > MAX_HABITAT_READINGS ? next.slice(-MAX_HABITAT_READINGS) : next });
 }
 
 export function raiseAlarm(alert: Alert) {
@@ -122,6 +132,15 @@ export const useLiveReadings = (astronautId: string) =>
 const NO_LIVE: Record<string, VitalReading[]> = {};
 /** Every astronaut's SignalR readings since the page loaded, keyed by astronaut id. */
 export const useAllLiveReadings = () => useSyncExternalStore(liveStore.subscribe, liveStore.get, () => NO_LIVE);
+
+const NO_HABITAT: HabitatReading[] = [];
+/** Live cabin readings for one mission since the page loaded. */
+export const useLiveHabitat = (missionId: string) =>
+  useSyncExternalStore(
+    habitatStore.subscribe,
+    () => habitatStore.get()[missionId] ?? NO_HABITAT,
+    () => NO_HABITAT,
+  );
 
 const NO_ALARMS: Alert[] = [];
 export const useAlarms = () => useSyncExternalStore(alarmStore.subscribe, alarmStore.get, () => NO_ALARMS);

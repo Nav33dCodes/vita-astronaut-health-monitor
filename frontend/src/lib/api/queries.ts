@@ -12,10 +12,14 @@ import type {
   CreateMissionRequest,
   DashboardSummary,
   EarlyWarningScoring,
+  HabitatReading,
+  HabitatThreshold,
+  HazardOverview,
   HealthAssessment,
   Mission,
   MissionStatus,
   PagedResult,
+  PlaybookEntry,
   RecordVitalsRequest,
   RecordVitalsResponse,
   SystemStatus,
@@ -24,6 +28,8 @@ import type {
   UpsertAstronautRequest,
   VitalSeries,
   VitalStats,
+  Wellness,
+  WellnessCheckInRequest,
 } from "./types";
 
 /** Polling is only a fallback: while SignalR is connected, pushes keep caches fresh. */
@@ -47,6 +53,11 @@ export const queryKeys = {
   assessment: (id: string) => ["assessments", id] as const,
   apiHealth: ["api-health"] as const,
   earlyWarningScoring: ["early-warning-scoring"] as const,
+  hazards: ["hazards"] as const,
+  playbook: ["playbook"] as const,
+  habitatThresholds: ["habitat-thresholds"] as const,
+  habitatHistory: (missionId: string, minutes: number) => ["habitat-history", missionId, minutes] as const,
+  wellness: (id: string, days: number) => ["wellness", id, days] as const,
 };
 
 /** Anything that changes health data affects these views. */
@@ -97,7 +108,8 @@ export const queries = {
   thresholds: () =>
     queryOptions({
       queryKey: queryKeys.thresholds,
-      queryFn: () => api.get<Threshold[]>("/api/v1/vitals/thresholds"),
+      // v=2: radiation became a dose rate (mSv/day); the version skips browser-cached v1 responses.
+      queryFn: () => api.get<Threshold[]>("/api/v1/vitals/thresholds?v=2"),
       staleTime: Infinity,
     }),
   alerts: (query: AlertQuery) =>
@@ -122,6 +134,24 @@ export const queries = {
     queryOptions({
       queryKey: queryKeys.systemStatus,
       queryFn: () => api.get<SystemStatus>("/api/v1/system/status"),
+    }),
+  /** Five-hazards overview. Cabin pushes over SignalR refresh it; the interval is a backstop. */
+  hazards: () =>
+    queryOptions({
+      queryKey: queryKeys.hazards,
+      queryFn: () => api.get<HazardOverview>("/api/v1/hazards"),
+    }),
+  playbook: () =>
+    queryOptions({
+      queryKey: queryKeys.playbook,
+      queryFn: () => api.get<PlaybookEntry[]>("/api/v1/hazards/playbook"),
+      staleTime: Infinity,
+    }),
+  habitatThresholds: () =>
+    queryOptions({
+      queryKey: queryKeys.habitatThresholds,
+      queryFn: () => api.get<HabitatThreshold[]>("/api/v1/habitat/thresholds"),
+      staleTime: Infinity,
     }),
 };
 
@@ -169,6 +199,38 @@ export const useAssessment = (id: string) =>
   });
 
 export const useEarlyWarningScoring = () => useQuery(queries.earlyWarningScoring());
+
+export const useHazards = () => useQuery({ ...queries.hazards(), refetchInterval: 30_000 });
+
+export const usePlaybook = () => useQuery(queries.playbook());
+
+export const useHabitatThresholds = () => useQuery(queries.habitatThresholds());
+
+/** Recent cabin history for charts; live points are appended from the real-time store. */
+export const useHabitatHistory = (missionId: string, minutes = 30) =>
+  useQuery({
+    queryKey: queryKeys.habitatHistory(missionId, minutes),
+    queryFn: () => api.get<HabitatReading[]>(withQuery(`/api/v1/missions/${missionId}/habitat`, { minutes })),
+    staleTime: Infinity,
+  });
+
+export const useWellness = (id: string, days = 14) =>
+  useQuery({
+    queryKey: queryKeys.wellness(id, days),
+    queryFn: () => api.get<Wellness>(withQuery(`/api/v1/astronauts/${id}/wellness`, { days })),
+  });
+
+export function useWellnessCheckIn(astronautId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: WellnessCheckInRequest) => api.post<Wellness>(`/api/v1/astronauts/${astronautId}/wellness/check-in`, body),
+    onSuccess: () =>
+      Promise.all([
+        client.invalidateQueries({ queryKey: ["wellness", astronautId] }),
+        client.invalidateQueries({ queryKey: queryKeys.hazards }),
+      ]),
+  });
+}
 
 export const useSystemStatus = () => useQuery({ ...queries.systemStatus(), refetchInterval: 10_000 });
 

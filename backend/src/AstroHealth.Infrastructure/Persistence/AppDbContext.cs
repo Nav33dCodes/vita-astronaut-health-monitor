@@ -1,6 +1,7 @@
 using AstroHealth.Application.Abstractions;
 using AstroHealth.Domain.Alerts;
 using AstroHealth.Domain.Astronauts;
+using AstroHealth.Domain.Hazards;
 using AstroHealth.Domain.Missions;
 using AstroHealth.Domain.Vitals;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<VitalReading> VitalReadings => Set<VitalReading>();
     public DbSet<VitalRollup> VitalRollups => Set<VitalRollup>();
     public DbSet<HealthAlert> HealthAlerts => Set<HealthAlert>();
+    public DbSet<HabitatReading> HabitatReadings => Set<HabitatReading>();
+    public DbSet<WellnessEntry> WellnessEntries => Set<WellnessEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder) =>
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);

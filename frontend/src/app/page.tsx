@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
 import { AlertList } from "@/components/alerts/alert-list";
 import { CrewQuickView } from "@/components/crew/crew-quick-view";
+import { HazardSummaryRow } from "@/components/hazards/hazard-summary";
 import { TrendWatch } from "@/components/monitor/early-warning";
 import { CrewVitalsTable } from "@/components/overview/crew-vitals-table";
 import { FleetTrend } from "@/components/overview/fleet-trend";
@@ -16,7 +17,7 @@ import { RISK_TEXT } from "@/components/ui/ews";
 import { ExportMenu } from "@/components/ui/export-menu";
 import { Pager } from "@/components/ui/pager";
 import { Card, CardTitle, Count, EmptyState, ErrorState, PageHeader, Segmented, Skeleton } from "@/components/ui/primitives";
-import { useAlerts, useAstronauts, useDashboard, useFleetAssessments, useMissions, useThresholds } from "@/lib/api/queries";
+import { useAlerts, useAstronauts, useDashboard, useFleetAssessments, useHazards, useMissions, useThresholds } from "@/lib/api/queries";
 import type { DashboardSummary, HealthStatus } from "@/lib/api/types";
 import { useHydrated } from "@/lib/hooks";
 import { PAGE_SIZE } from "@/lib/prefetch";
@@ -71,6 +72,8 @@ function Overview({ summary }: { summary: DashboardSummary }) {
         <EwsKpi />
         <TelemetryKpi />
       </div>
+
+      <HazardsStrip />
 
       <Card className="overflow-hidden p-0">
         <CardTitle
@@ -143,6 +146,20 @@ function CardLink({ href, children }: { href: string; children: ReactNode }) {
     >
       {children} <ArrowUpRight className="size-3.5" aria-hidden />
     </Link>
+  );
+}
+
+/** Fleet status against NASA's five hazards of human spaceflight. */
+function HazardsStrip() {
+  const hazards = useHazards();
+  return (
+    <section aria-label="Five hazards of spaceflight">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-[13.5px] font-semibold text-ink">Five hazards of spaceflight</h2>
+        <CardLink href="/hazards">Details</CardLink>
+      </div>
+      {hazards.data ? <HazardSummaryRow summary={hazards.data.summary} /> : <Skeleton className="h-[116px] rounded-[var(--radius-card)]" />}
+    </section>
   );
 }
 

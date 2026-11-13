@@ -1,5 +1,6 @@
 using AstroHealth.Application.Abstractions;
 using AstroHealth.Application.Alerts;
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Vitals;
 using Microsoft.AspNetCore.OutputCaching;
 using Microsoft.AspNetCore.SignalR;
@@ -13,6 +14,7 @@ public interface ITelemetryClient
     Task AlertRaised(AlertResponse alert);
     Task AlertUpdated(AlertResponse alert);
     Task AlertEscalated(AlertResponse alert);
+    Task HabitatUpdated(HabitatUpdatedEvent @event);
 }
 
 /// <summary>Real-time telemetry stream for mission-control dashboards.</summary>
@@ -65,6 +67,9 @@ internal sealed class SignalRTelemetryPublisher(
 
     public Task AlertEscalatedAsync(AlertResponse alert, CancellationToken ct = default) =>
         SafeSend(() => hub.Clients.All.AlertEscalated(alert), nameof(ITelemetryClient.AlertEscalated), evictDashboard: true);
+
+    public Task HabitatUpdatedAsync(HabitatUpdatedEvent @event, CancellationToken ct = default) =>
+        SafeSend(() => hub.Clients.All.HabitatUpdated(@event), nameof(ITelemetryClient.HabitatUpdated));
 
     private async Task SafeSend(Func<Task> send, string eventName, bool evictDashboard = false)
     {

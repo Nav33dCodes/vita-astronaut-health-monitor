@@ -1,5 +1,6 @@
 using AstroHealth.Domain.Alerts;
 using AstroHealth.Domain.Astronauts;
+using AstroHealth.Domain.Hazards;
 using AstroHealth.Domain.Missions;
 using AstroHealth.Domain.Vitals;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,7 @@ internal sealed class AstronautConfiguration : IEntityTypeConfiguration<Astronau
         builder.Property(a => a.FirstName).HasMaxLength(60).IsRequired();
         builder.Property(a => a.LastName).HasMaxLength(60).IsRequired();
         builder.Property(a => a.Agency).HasMaxLength(60).IsRequired();
+        builder.Property(a => a.MissionDoseMsv).HasPrecision(12, 4);
         builder.HasIndex(a => new { a.LastName, a.FirstName });
 
         builder.HasMany(a => a.Readings)
@@ -53,7 +55,8 @@ internal sealed class VitalReadingConfiguration : IEntityTypeConfiguration<Vital
         builder.HasKey(r => r.Id);
         builder.Property(r => r.OxygenSaturationPct).HasPrecision(5, 2);
         builder.Property(r => r.BodyTemperatureC).HasPrecision(4, 2);
-        builder.Property(r => r.RadiationDoseMsv).HasPrecision(9, 4);
+        builder.Property(r => r.RadiationDoseMsv).HasPrecision(12, 6);
+        builder.Property(r => r.RadiationDoseRateMsvPerDay).HasPrecision(9, 3);
         builder.Property(r => r.Notes).HasMaxLength(500);
         builder.HasIndex(r => new { r.AstronautId, r.RecordedAtUtc });
 
@@ -108,5 +111,42 @@ internal sealed class HealthAlertConfiguration : IEntityTypeConfiguration<Health
             .WithMany()
             .HasForeignKey(a => a.VitalReadingId)
             .OnDelete(DeleteBehavior.SetNull);
+    }
+}
+
+internal sealed class HabitatReadingConfiguration : IEntityTypeConfiguration<HabitatReading>
+{
+    public void Configure(EntityTypeBuilder<HabitatReading> builder)
+    {
+        builder.HasKey(h => h.Id);
+        builder.Property(h => h.CarbonDioxideMmHg).HasPrecision(6, 2);
+        builder.Property(h => h.OxygenPct).HasPrecision(5, 2);
+        builder.Property(h => h.CabinPressureKpa).HasPrecision(6, 2);
+        builder.Property(h => h.CabinTemperatureC).HasPrecision(5, 2);
+        builder.Property(h => h.HumidityPct).HasPrecision(5, 2);
+        builder.Property(h => h.RadiationDoseRateMsvPerDay).HasPrecision(9, 3);
+        builder.HasIndex(h => new { h.MissionId, h.RecordedAtUtc });
+
+        builder.HasOne<Mission>()
+            .WithMany()
+            .HasForeignKey(h => h.MissionId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal sealed class WellnessEntryConfiguration : IEntityTypeConfiguration<WellnessEntry>
+{
+    public void Configure(EntityTypeBuilder<WellnessEntry> builder)
+    {
+        builder.HasKey(w => w.Id);
+        builder.Property(w => w.SleepHours).HasPrecision(4, 2);
+        builder.Property(w => w.LightExposureHours).HasPrecision(4, 2);
+        builder.Property(w => w.CheckInNote).HasMaxLength(300);
+        builder.HasIndex(w => new { w.AstronautId, w.Date }).IsUnique();
+
+        builder.HasOne<Astronaut>()
+            .WithMany()
+            .HasForeignKey(w => w.AstronautId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

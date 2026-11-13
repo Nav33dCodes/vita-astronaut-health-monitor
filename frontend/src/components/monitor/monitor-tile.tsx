@@ -82,7 +82,11 @@ export function MonitorTile({
         <Cell label="BP" value={latest ? `${latest.systolicMmHg}/${latest.diastolicMmHg}` : undefined} status={bloodPressureStatus(latest, thresholds)} />
         <Cell label="Temp" value={latest?.bodyTemperatureC} unit="°" status={statusOf("BodyTemperature", latest, thresholds)} />
         <Cell label="Resp" value={latest?.respiratoryRatePerMin} status={statusOf("RespiratoryRate", latest, thresholds)} />
-        <Cell label="Rad" value={latest?.radiationDoseMsv} status={statusOf("RadiationDose", latest, thresholds)} />
+        <Cell
+          label="mSv/d"
+          value={latest?.radiationDoseRateMsvPerDay ?? undefined}
+          status={statusOf("RadiationDose", latest?.radiationDoseRateMsvPerDay == null ? undefined : latest, thresholds)}
+        />
       </dl>
 
       <div className="mt-3 flex w-full items-center justify-between gap-2 text-[12px]">

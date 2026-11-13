@@ -7,7 +7,7 @@ import type { PersistQueryClientOptions } from "@tanstack/react-query-persist-cl
  * Bump whenever API response shapes change: a cache written by an older build is then discarded
  * instead of being rendered with the wrong shape.
  */
-export const CACHE_BUSTER = "vita-2026-10-a";
+export const CACHE_BUSTER = "vita-2026-11-hazards";
 
 /** Persisted entries older than this are ignored on startup. Must not exceed the queries' gcTime. */
 export const PERSIST_MAX_AGE_MS = 24 * 60 * 60 * 1000;

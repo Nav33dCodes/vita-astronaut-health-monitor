@@ -6,6 +6,7 @@ import {
   Rocket,
   ScrollText,
   Server,
+  ShieldAlert,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -28,6 +29,7 @@ export const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/", label: "Overview", icon: LayoutDashboard, key: "o", primary: true },
       { href: "/monitor", label: "Live monitor", icon: MonitorDot, key: "m", primary: true },
+      { href: "/hazards", label: "Hazards", icon: ShieldAlert, key: "h" },
       { href: "/alerts", label: "Alerts", icon: BellRing, badge: "alerts", key: "a", primary: true },
       { href: "/events", label: "Event log", icon: ScrollText, key: "e" },
     ],

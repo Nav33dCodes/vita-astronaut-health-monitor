@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { CheckCheck, CircleCheck, X } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { confirm } from "@/lib/notify";
 import { AlertList } from "@/components/alerts/alert-list";
 import { CrewQuickView } from "@/components/crew/crew-quick-view";
 import { Dialog } from "@/components/ui/dialog";
@@ -175,8 +175,8 @@ function BulkActions({ ids, openIds, onDone }: { ids: string[]; openIds: string[
     const failed = results.filter((r) => r.status === "rejected").length;
     const done = list.length - failed;
     const verb = kind === "ack" ? "acknowledged" : "resolved";
-    if (done > 0) toast.success(`${done} alert${done > 1 ? "s" : ""} ${verb}`);
-    if (failed > 0) toast.error(`${failed} alert${failed > 1 ? "s" : ""} could not be ${verb}`, { description: "They may already be handled." });
+    if (done > 0) confirm.done(`${done} alert${done > 1 ? "s" : ""} ${verb}`);
+    if (failed > 0) confirm.failed(`${failed} alert${failed > 1 ? "s" : ""} not ${verb}`, "They may already be handled.");
     onDone();
   };
 

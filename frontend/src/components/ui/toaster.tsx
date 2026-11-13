@@ -4,27 +4,31 @@ import { CircleAlert, CircleCheck, Info, Loader2, OctagonAlert, type LucideIcon 
 import { Toaster as Sonner } from "sonner";
 import { useTheme } from "@/lib/theme";
 
-/** Icon chip tinted with the toast's accent colour (set per type in globals.css). */
+/** Small tinted icon; the colour comes from the toast type (see globals.css). */
 function ToastIcon({ icon: Icon, spin = false }: { icon: LucideIcon; spin?: boolean }) {
   return (
-    <span className="grid size-8 place-items-center rounded-full bg-[color-mix(in_srgb,var(--toast-accent)_12%,transparent)] text-[var(--toast-accent)]">
-      <Icon className={spin ? "size-4 animate-spin" : "size-4"} aria-hidden />
+    <span className="grid size-5 place-items-center text-[var(--toast-accent)]">
+      <Icon className={spin ? "size-4 animate-spin" : "size-4"} aria-hidden strokeWidth={2.2} />
     </span>
   );
 }
 
-/** Minimal notifications: flat card, type-coloured icon chip, unobtrusive close button. */
+/**
+ * Minimal notifications: bottom-right, at most three on screen, compact cards that pause while
+ * hovered. What appears here is decided by lib/notify (critical events and the user's own actions).
+ */
 export function Toaster() {
   const { resolved } = useTheme();
 
   return (
     <Sonner
       theme={resolved}
-      position="top-right"
-      offset={{ top: 64, right: 16 }}
-      mobileOffset={{ top: 64 }}
-      gap={10}
-      visibleToasts={4}
+      position="bottom-right"
+      offset={{ bottom: 16, right: 16 }}
+      // Above the mobile tab bar.
+      mobileOffset={{ bottom: 76, left: 12, right: 12 }}
+      gap={8}
+      visibleToasts={3}
       closeButton
       icons={{
         success: <ToastIcon icon={CircleCheck} />,
@@ -37,16 +41,16 @@ export function Toaster() {
         unstyled: true,
         classNames: {
           toast:
-            "group relative flex w-[min(372px,calc(100vw-32px))] items-start gap-3 overflow-hidden rounded-xl border border-line bg-panel py-3 pr-9 pl-3.5 text-ink shadow-[var(--shadow-pop)]",
-          icon: "shrink-0",
-          content: "min-w-0 flex-1 pt-0.5",
-          title: "text-[13px] leading-snug font-semibold tracking-tight",
-          description: "mt-0.5 text-[12.5px] leading-snug text-muted",
+            "group relative flex w-[min(360px,calc(100vw-24px))] items-start gap-2.5 overflow-hidden rounded-xl border border-line bg-panel py-2.5 pr-8 pl-3 text-ink shadow-[var(--shadow-pop)]",
+          icon: "mt-px shrink-0",
+          content: "min-w-0 flex-1",
+          title: "truncate text-[13px] leading-5 font-medium",
+          description: "line-clamp-2 text-[12.5px] leading-snug text-muted",
           actionButton:
-            "shrink-0 self-center rounded-lg bg-[color-mix(in_srgb,var(--toast-accent)_14%,transparent)] px-2.5 py-1 text-xs font-semibold text-[var(--toast-accent)] transition hover:bg-[color-mix(in_srgb,var(--toast-accent)_24%,transparent)]",
-          cancelButton: "shrink-0 self-center rounded-lg px-2.5 py-1 text-xs font-medium text-muted hover:text-ink",
+            "shrink-0 self-center rounded-md px-2 py-1 text-[12px] font-semibold text-accent transition-colors hover:bg-accent/10",
+          cancelButton: "shrink-0 self-center rounded-md px-2 py-1 text-[12px] font-medium text-muted hover:text-ink",
           closeButton:
-            "!absolute !top-2.5 !right-2.5 !left-auto grid size-6 place-items-center rounded-lg text-faint opacity-0 transition group-hover:opacity-100 hover:bg-overlay/[0.06] hover:text-ink focus-visible:opacity-100 [&_svg]:size-3.5",
+            "!absolute !top-2 !right-2 !left-auto grid size-6 place-items-center rounded-md text-faint opacity-0 transition group-hover:opacity-100 hover:bg-overlay/[0.06] hover:text-ink focus-visible:opacity-100 [&_svg]:size-3.5",
         },
       }}
     />

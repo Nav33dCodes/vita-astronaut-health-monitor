@@ -4,10 +4,10 @@ import { HttpTransportType, HubConnectionBuilder, HubConnectionState, LogLevel }
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
-import { toast } from "sonner";
 import { API_BASE_URL } from "@/lib/api/client";
 import type { Alert, AstronautDetail, HabitatUpdatedEvent, HealthStatus, ReadingRecordedEvent } from "@/lib/api/types";
 import { showDesktopAlert } from "@/lib/notifications";
+import { getNotificationMode, notify } from "@/lib/notify";
 import { clearAlarm, raiseAlarm, recordEvent, recordHabitat, recordLiveReading, updateLink } from "@/lib/realtime/store";
 import { playAlertChime, playMasterAlarm } from "@/lib/sound";
 
@@ -52,6 +52,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     const telemetryRefresh = createInvalidator(client, 4_000);
     const alertRefresh = createInvalidator(client, 300);
     const hazardRefresh = createInvalidator(client, 2_000);
+    // Desktop notifications follow the same quiet rules: none when notifications are muted.
+    const desktop = (title: string, body: string, tag: string, href: string) => {
+      if (getNotificationMode() === "mute") return;
+      showDesktopAlert({ title, body, tag, sticky: true, onClick: () => router.push(href) });
+    };
     // Last known cabin status per mission: notify only when it gets worse, never on every packet.
     const habitatStatus = new Map<string, HealthStatus>();
     const rank: Record<HealthStatus, number> = { Unknown: 0, Nominal: 1, Caution: 2, Critical: 3 };
@@ -85,14 +90,18 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
       const worst = [...reading.findings].sort((a, b) => rank[b.status] - rank[a.status])[0];
       const critical = reading.status === "Critical";
-      (critical ? toast.error : toast.warning)(`${critical ? "Critical" : "Caution"} · ${missionName} cabin`, {
-        description: worst.message,
-        duration: critical ? 12_000 : 6_000,
-        action: { label: "Hazards", onClick: () => router.push("/hazards") },
+      notify({
+        severity: critical ? "critical" : "warning",
+        title: `${missionName} cabin`,
+        body: worst.message,
+        href: "/hazards",
+        group: `habitat:${reading.missionId}`,
+        groupNoun: "cabin updates",
+        onOpen: () => router.push("/hazards"),
       });
       if (critical) {
         playAlertChime();
-        showDesktopAlert({ title: `CABIN · ${missionName}`, body: worst.message, tag: `habitat-${reading.missionId}`, onClick: () => router.push("/hazards") });
+        desktop(`Cabin · ${missionName}`, worst.message, `habitat-${reading.missionId}`, "/hazards");
       }
     });
 
@@ -100,21 +109,19 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       recordEvent({ kind: "alert-raised", astronautId: alert.astronautId, astronautName: alert.astronautName, alert });
       alertRefresh.schedule(["alerts", "dashboard", "astronauts", "astronaut"]);
 
-      const show = alert.severity === "Critical" ? toast.error : toast.warning;
-      show(`${alert.severity} · ${alert.astronautName}`, {
-        description: alert.message,
-        duration: alert.severity === "Critical" ? 12_000 : 6_000,
-        action: { label: "View", onClick: () => router.push(`/crew/${alert.astronautId}`) },
+      const critical = alert.severity === "Critical";
+      notify({
+        severity: critical ? "critical" : "warning",
+        title: alert.astronautName,
+        body: alert.message,
+        href: `/crew/${alert.astronautId}`,
+        group: `crew:${alert.astronautId}`,
+        groupNoun: "new alerts",
+        onOpen: () => router.push(`/crew/${alert.astronautId}`),
       });
-      if (alert.severity === "Critical") {
+      if (critical) {
         playAlertChime();
-        showDesktopAlert({
-          title: `CRITICAL · ${alert.astronautName}`,
-          body: alert.message,
-          tag: alert.id,
-          sticky: true,
-          onClick: () => router.push(`/crew/${alert.astronautId}`),
-        });
+        desktop(`Critical · ${alert.astronautName}`, alert.message, alert.id, `/crew/${alert.astronautId}`);
       }
     });
 
@@ -123,13 +130,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
       alertRefresh.schedule(["alerts", "dashboard", "astronauts", "astronaut"]);
       raiseAlarm(alert);
       playMasterAlarm();
-      showDesktopAlert({
-        title: `MASTER ALARM · Escalation L${alert.escalationLevel}`,
-        body: `${alert.astronautName}: ${alert.message} — still unacknowledged`,
-        tag: `escalation-${alert.id}`,
-        sticky: true,
-        onClick: () => router.push("/alerts"),
+      // The full-screen master alarm is the notification; the inbox keeps the record.
+      notify({
+        severity: "critical",
+        title: `Escalated · ${alert.astronautName}`,
+        body: `${alert.message}. Unacknowledged, level ${alert.escalationLevel}.`,
+        href: "/alerts",
+        group: `escalation:${alert.id}`,
       });
+      desktop(`Master alarm · ${alert.astronautName}`, `${alert.message}. Still unacknowledged.`, `escalation-${alert.id}`, "/alerts");
     });
 
     connection.on("AlertUpdated", (alert: Alert) => {

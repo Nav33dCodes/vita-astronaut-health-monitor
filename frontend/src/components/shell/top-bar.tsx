@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { useQuery } from "@tanstack/react-query";
-import { BellRing, ChevronRight, Menu, Radio, Search, Siren, WifiOff } from "lucide-react";
+import { ChevronRight, Menu, Radio, Search, Siren, WifiOff } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Suspense } from "react";
@@ -14,6 +14,7 @@ import { navItemFor } from "@/lib/navigation";
 import { useOnline } from "@/lib/online";
 import { useLinkStatus } from "@/lib/realtime/store";
 import { formatUtcClock, useNow } from "@/lib/time";
+import { NotificationCenter } from "./notification-center";
 import { SettingsMenu } from "./settings-menu";
 import { Wordmark } from "./wordmark";
 
@@ -61,7 +62,7 @@ export function TopBar({ onOpenPalette, onOpenNav }: { onOpenPalette: () => void
             </span>
           </button>
 
-          <AlertsButton />
+          <NotificationCenter />
           <SettingsMenu />
         </div>
       </header>
@@ -155,34 +156,6 @@ function UtcClock() {
       <span className="font-sans text-[11.5px] font-medium text-faint">UTC</span>
       {now ? formatUtcClock(now) : "--:--:--"}
     </span>
-  );
-}
-
-function AlertsButton() {
-  const { data } = useDashboard();
-  const hydrated = useHydrated();
-  const open = hydrated ? (data?.openAlerts ?? 0) : 0;
-  const critical = hydrated ? (data?.openCriticalAlerts ?? 0) : 0;
-
-  return (
-    <Link
-      href="/alerts"
-      aria-label={`Alerts: ${open} open, ${critical} critical`}
-      title={open ? `${open} open alerts · ${critical} critical` : "No open alerts"}
-      className="relative grid size-8 place-items-center rounded-lg text-muted transition-colors hover:bg-overlay/[0.06] hover:text-ink"
-    >
-      <BellRing className="size-4" aria-hidden />
-      {open > 0 && (
-        <span
-          className={clsx(
-            "tnum absolute -top-0.5 -right-0.5 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold ring-2 ring-canvas",
-            critical > 0 ? "bg-critical-solid text-white" : "bg-caution text-white",
-          )}
-        >
-          {open > 99 ? "99+" : open}
-        </span>
-      )}
-    </Link>
   );
 }
 

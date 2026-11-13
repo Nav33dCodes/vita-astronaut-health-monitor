@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { toast } from "sonner";
+import { confirm } from "@/lib/notify";
 import { Dialog } from "@/components/ui/dialog";
 import { Button, Field, Input } from "@/components/ui/primitives";
 import { useAcknowledgeAlert, useResolveAlert } from "@/lib/api/queries";
@@ -15,7 +15,7 @@ export function AlertActions({ alert }: { alert: Alert }) {
 
   if (alert.status === "Resolved") return null;
 
-  const onError = (error: Error) => toast.error("Action failed", { description: error.message });
+  const onError = (error: Error) => confirm.failed("Action failed", error.message);
 
   return (
     <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -26,7 +26,7 @@ export function AlertActions({ alert }: { alert: Alert }) {
           loading={acknowledge.isPending}
           onClick={() =>
             acknowledge.mutate(alert.id, {
-              onSuccess: () => toast.success("Alert acknowledged", { description: alert.message }),
+              onSuccess: () => confirm.done("Alert acknowledged"),
               onError,
             })
           }
@@ -53,7 +53,7 @@ export function AlertActions({ alert }: { alert: Alert }) {
               {
                 onSuccess: () => {
                   setResolving(false);
-                  toast.success("Alert resolved", { description: alert.message });
+                  confirm.done("Alert resolved");
                 },
                 onError,
               },

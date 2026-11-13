@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { LayoutGrid, List, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
+import { confirm } from "@/lib/notify";
 import { AstronautForm } from "@/components/crew/astronaut-form";
 import { CrewCard } from "@/components/crew/crew-card";
 import { CrewAvatar } from "@/components/ui/avatar";
@@ -204,7 +204,7 @@ export default function CrewPage() {
         <AstronautForm
           onDone={(created) => {
             setAdding(false);
-            if (created) toast.success(`${created.firstName} ${created.lastName} added to the roster`);
+            if (created) confirm.done(`${created.firstName} ${created.lastName} added`);
           }}
         />
       </Dialog>

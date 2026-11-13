@@ -3,7 +3,7 @@
 import { Siren, VolumeX } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { confirm } from "@/lib/notify";
 import { EscalationBadge } from "@/components/ui/ews";
 import { Button } from "@/components/ui/primitives";
 import { useAcknowledgeAlert } from "@/lib/api/queries";
@@ -35,9 +35,9 @@ export function MasterAlarm() {
     setBusy(false);
     const failed = results.filter((r) => r.status === "rejected").length;
     if (failed > 0) {
-      toast.error(`${failed} alert(s) could not be acknowledged`, { description: "They may already be handled." });
+      confirm.failed(`${failed} alert${failed > 1 ? "s" : ""} not acknowledged`, "They may already be handled.");
     } else {
-      toast.success(`${alarms.length} escalated alert${alarms.length > 1 ? "s" : ""} acknowledged`);
+      confirm.done(`${alarms.length} escalated alert${alarms.length > 1 ? "s" : ""} acknowledged`);
     }
     dismissAlarms();
   };

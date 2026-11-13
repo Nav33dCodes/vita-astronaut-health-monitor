@@ -72,7 +72,7 @@ function saveBlob(blob: Blob, name: string): string {
 export async function runReportJob(option: ExportOption): Promise<void> {
   const id = `report:${option.path}`;
   if (active.has(id)) {
-    toast.info(`${option.label} is already being generated`);
+    toast.info(`${option.label} is already being generated`, { duration: 2_500 });
     return;
   }
 

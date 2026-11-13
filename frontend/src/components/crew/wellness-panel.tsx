@@ -3,7 +3,7 @@
 import clsx from "clsx";
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { toast } from "sonner";
+import { confirm } from "@/lib/notify";
 import { HEALTH_LABEL, HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
 import { Button, Card, CardTitle, EmptyState, ErrorState, Field, Input, Skeleton } from "@/components/ui/primitives";
 import { useWellness, useWellnessCheckIn } from "@/lib/api/queries";
@@ -157,9 +157,9 @@ function CheckInForm({ astronautId, today }: { astronautId: string; today: Welln
           {
             onSuccess: (w) => {
               setNote("");
-              toast.success("Check-in saved", { description: `Behavioural health: ${HEALTH_LABEL[w.status].toLowerCase()}` });
+              confirm.done(`Check-in saved · ${HEALTH_LABEL[w.status].toLowerCase()}`);
             },
-            onError: (error) => toast.error("Check-in failed", { description: error.message }),
+            onError: (error) => confirm.failed("Check-in failed", error.message),
           },
         );
       }}

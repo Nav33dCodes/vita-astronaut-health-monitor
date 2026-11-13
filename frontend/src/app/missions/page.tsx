@@ -3,7 +3,7 @@
 import { Globe2, Moon, Orbit, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { toast } from "sonner";
+import { confirm } from "@/lib/notify";
 import { MissionForm } from "@/components/missions/mission-form";
 import { CrewAvatar } from "@/components/ui/avatar";
 import { MissionStatusBadge } from "@/components/ui/badges";
@@ -81,7 +81,7 @@ export default function MissionsPage() {
         <MissionForm
           onDone={(created) => {
             setCreating(false);
-            if (created) toast.success(`Mission ${created.name} created`);
+            if (created) confirm.done(`${created.name} created`);
           }}
         />
       </Dialog>
@@ -98,7 +98,7 @@ function MissionCard({ mission }: { mission: Mission }) {
 
   const Icon = DESTINATION_ICONS[mission.destination];
   const closed = mission.status === "Completed" || mission.status === "Aborted";
-  const onError = (error: Error) => toast.error("Action failed", { description: error.message });
+  const onError = (error: Error) => confirm.failed("Action failed", error.message);
 
   return (
     <Card className="flex flex-col">
@@ -138,7 +138,7 @@ function MissionCard({ mission }: { mission: Mission }) {
             onChange={(e) =>
               changeStatus.mutate(
                 { id: mission.id, status: e.target.value as MissionStatus },
-                { onSuccess: (m) => toast.success(`${m.name} is now ${m.status}`), onError },
+                { onSuccess: (m) => confirm.done(`${m.name} is now ${m.status.toLowerCase()}`), onError },
               )
             }
             aria-label={`Status of ${mission.name}`}
@@ -178,7 +178,7 @@ function MissionCard({ mission }: { mission: Mission }) {
           remove.mutate(mission.id, {
             onSuccess: () => {
               setConfirming(false);
-              toast.success(`Mission ${mission.name} deleted`);
+              confirm.done(`${mission.name} deleted`);
             },
             onError,
           })

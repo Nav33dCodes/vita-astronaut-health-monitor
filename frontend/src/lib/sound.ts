@@ -1,16 +1,17 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { getNotificationMode } from "./notify";
 
-// Persisted per-browser preference for audible critical-alert chimes.
+// Persisted per-browser preference for audible critical-alert chimes. Off unless turned on.
 const KEY = "vita:sound";
 const listeners = new Set<() => void>();
 
 function read(): boolean {
   try {
-    return localStorage.getItem(KEY) !== "off";
+    return localStorage.getItem(KEY) === "on";
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -30,13 +31,16 @@ export function useSoundEnabled(): boolean {
       return () => listeners.delete(notify);
     },
     read,
-    () => true,
+    () => false,
   );
 }
 
 /** Plays a sequence of short tones via Web Audio — no asset download needed. */
-function playTones(frequencies: number[], { step = 0.18, length = 0.16, volume = 0.12, wave = "sine" as OscillatorType } = {}) {
-  if (!read()) return;
+function playTones(
+  frequencies: number[],
+  { step = 0.18, length = 0.16, volume = 0.12, wave = "sine" as OscillatorType, always = false } = {},
+) {
+  if (getNotificationMode() === "mute" || (!always && !read())) return;
   try {
     const ctx = new AudioContext();
     const gain = ctx.createGain();
@@ -62,6 +66,6 @@ function playTones(frequencies: number[], { step = 0.18, length = 0.16, volume =
 /** Two-tone chime for a new critical alert. */
 export const playAlertChime = () => playTones([880, 660]);
 
-/** Harsher, repeating pattern reserved for escalations (master alarm). */
+/** Harsher pattern reserved for escalations (master alarm). Safety-critical: plays unless muted. */
 export const playMasterAlarm = () =>
-  playTones([988, 740, 988, 740, 988, 740], { step: 0.22, length: 0.18, volume: 0.16, wave: "square" });
+  playTones([988, 740, 988, 740, 988, 740], { step: 0.22, length: 0.18, volume: 0.16, wave: "square", always: true });

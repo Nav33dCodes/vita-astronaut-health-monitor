@@ -5,7 +5,7 @@ import { ArrowLeft, ClipboardPlus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { toast } from "sonner";
+import { confirm, notify } from "@/lib/notify";
 import { AlertList } from "@/components/alerts/alert-list";
 import { RadiationBudgetBar } from "@/components/hazards/radiation-budget";
 import { AssessmentPanel } from "@/components/monitor/early-warning";
@@ -88,15 +88,17 @@ function ProfileView({ astronaut: a }: { astronaut: AstronautDetail }) {
   const onRecorded = (raised: Alert[]) => {
     setRecording(false);
     if (raised.length === 0) {
-      toast.success("Reading recorded", { description: "All vitals within safe limits." });
+      confirm.done("Reading recorded · all vitals in range");
       return;
     }
     // When the uplink is live, each alert arrives as its own real-time toast: no need to repeat them.
     if (isLive) return;
     const critical = raised.some((x) => x.severity === "Critical");
-    (critical ? toast.error : toast.warning)(`${raised.length} new alert${raised.length > 1 ? "s" : ""} raised`, {
-      description: raised.map((x) => x.message).join(" · "),
-      duration: 10_000,
+    notify({
+      severity: critical ? "critical" : "warning",
+      title: `${a.firstName} ${a.lastName}`,
+      body: raised.map((x) => x.message).join(" · "),
+      href: `/crew/${a.id}`,
     });
   };
 
@@ -213,10 +215,10 @@ function ProfileView({ astronaut: a }: { astronaut: AstronautDetail }) {
         onConfirm={() =>
           remove.mutate(a.id, {
             onSuccess: () => {
-              toast.success(`${a.firstName} ${a.lastName} removed`);
+              confirm.done(`${a.firstName} ${a.lastName} removed`);
               router.push("/crew");
             },
-            onError: (error) => toast.error("Delete failed", { description: error.message }),
+            onError: (error) => confirm.failed("Delete failed", error.message),
           })
         }
       />

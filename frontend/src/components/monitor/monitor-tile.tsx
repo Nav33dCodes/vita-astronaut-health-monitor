@@ -29,9 +29,7 @@ export function MonitorTile({
 }) {
   const { readings, isLoading } = useLiveVitals(a.id);
   const latest = readings.at(-1);
-  const { quality, ageSeconds } = useSignalQuality(latest?.recordedAtUtc);
   const hrStatus = statusOf("HeartRate", latest, thresholds);
-  const signal = SIGNAL[quality];
 
   return (
     <button
@@ -90,11 +88,7 @@ export function MonitorTile({
       </dl>
 
       <div className="mt-3 flex w-full items-center justify-between gap-2 text-[12px]">
-        <span className={clsx("flex items-center gap-1.5", signal.text)}>
-          <span aria-hidden className={clsx("size-1.5 rounded-full", signal.dot)} />
-          {signal.label}
-          {ageSeconds !== null && <span className="tnum text-faint">· {ageSeconds}s ago</span>}
-        </span>
+        <SignalStatus lastPacketIso={latest?.recordedAtUtc} />
         <span className="flex items-center gap-2 text-muted">
           {a.openAlerts > 0 && (
             <span>
@@ -124,5 +118,18 @@ function Cell({ label, value, unit, status }: { label: string; value: number | s
         )}
       </dd>
     </div>
+  );
+}
+
+/** Packet freshness on the shared one-second clock; isolated so the tile body doesn't re-render. */
+function SignalStatus({ lastPacketIso }: { lastPacketIso: string | undefined }) {
+  const { quality, ageSeconds } = useSignalQuality(lastPacketIso);
+  const signal = SIGNAL[quality];
+  return (
+    <span className={clsx("flex items-center gap-1.5", signal.text)}>
+      <span aria-hidden className={clsx("size-1.5 rounded-full", signal.dot)} />
+      {signal.label}
+      {ageSeconds !== null && <span className="tnum text-faint">· {ageSeconds}s ago</span>}
+    </span>
   );
 }

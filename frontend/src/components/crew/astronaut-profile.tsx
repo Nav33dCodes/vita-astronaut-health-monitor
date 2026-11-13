@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { ArrowLeft, ClipboardPlus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { useState } from "react";
 import { confirm, notify } from "@/lib/notify";
 import { AlertList } from "@/components/alerts/alert-list";
@@ -26,7 +27,11 @@ import { reports } from "@/lib/reports";
 import { METRIC_VALUE, classify, describeRange } from "@/lib/vitals";
 import { RecordVitalsForm } from "./record-vitals-form";
 import { WellnessPanel } from "./wellness-panel";
-import { VitalsChart } from "./vitals-chart";
+
+const VitalsChart = dynamic(() => import("./vitals-chart").then((m) => m.VitalsChart), {
+  ssr: false,
+  loading: () => <SkeletonChart height={320} />,
+});
 import { ProfileSkeleton } from "@/components/skeletons/page-skeletons";
 import { SkeletonChart, SkeletonList } from "@/components/ui/skeleton";
 

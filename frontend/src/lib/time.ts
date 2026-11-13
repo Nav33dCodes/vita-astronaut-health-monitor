@@ -1,20 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-/** Current time, ticking. Null until mounted so server and client markup match. */
-export function useNow(intervalMs = 1000): Date | null {
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    const tick = () => setNow(new Date());
-    const first = setTimeout(tick, 0);
-    const timer = setInterval(tick, intervalMs);
-    return () => {
-      clearTimeout(first);
-      clearInterval(timer);
+/*
+ * One shared clock per tick interval for the whole app. Components that need "now" subscribe
+ * to it instead of each running their own setInterval, so twenty live cells cost one timer and
+ * all of them update in the same frame.
+ */
+
+interface Ticker {
+  now: Date;
+  listeners: Set<() => void>;
+  timer: ReturnType<typeof setInterval> | null;
+}
+
+const tickers = new Map<number, Ticker>();
+
+function ticker(intervalMs: number): Ticker {
+  let t = tickers.get(intervalMs);
+  if (!t) {
+    t = { now: new Date(), listeners: new Set(), timer: null };
+    tickers.set(intervalMs, t);
+  }
+  return t;
+}
+
+function subscribe(intervalMs: number, listener: () => void) {
+  const t = ticker(intervalMs);
+  t.listeners.add(listener);
+  // Never touch `now` here: subscribing must not change the snapshot, or React re-renders,
+  // re-subscribes and loops. The value only moves on a tick.
+  if (t.timer === null) {
+    const tick = () => {
+      t.now = new Date();
+      t.listeners.forEach((l) => l());
     };
-  }, [intervalMs]);
-  return now;
+    t.timer = setInterval(tick, intervalMs);
+    // A ticker that sat idle holds an old time: refresh it right away, asynchronously.
+    setTimeout(tick, 0);
+  }
+  return () => {
+    t.listeners.delete(listener);
+    if (t.listeners.size === 0 && t.timer !== null) {
+      clearInterval(t.timer);
+      t.timer = null;
+    }
+  };
+}
+
+// Stable subscribe/snapshot functions per interval: React re-subscribes whenever the
+// subscribe function identity changes, so it must not be recreated on every render.
+const handles = new Map<number, { subscribe: (l: () => void) => () => void; snapshot: () => Date }>();
+function handle(intervalMs: number) {
+  let h = handles.get(intervalMs);
+  if (!h) {
+    h = { subscribe: (l) => subscribe(intervalMs, l), snapshot: () => ticker(intervalMs).now };
+    handles.set(intervalMs, h);
+  }
+  return h;
+}
+
+const serverNow = () => null;
+
+/** Current time, ticking every `intervalMs`. Null during server render and hydration. */
+export function useNow(intervalMs = 1000): Date | null {
+  const h = handle(intervalMs);
+  return useSyncExternalStore(h.subscribe, h.snapshot, serverNow);
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");

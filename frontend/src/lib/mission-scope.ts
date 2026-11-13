@@ -34,13 +34,15 @@ export function setMissionScope(missionId: string | null) {
 }
 
 /** Selected mission id, or null for all missions. Null during server render and hydration. */
+function subscribe(notify: () => void) {
+  listeners.add(notify);
+  return () => {
+    listeners.delete(notify);
+  };
+}
+
+const serverScope = () => null;
+
 export function useMissionScope(): string | null {
-  return useSyncExternalStore(
-    (notify) => {
-      listeners.add(notify);
-      return () => listeners.delete(notify);
-    },
-    read,
-    () => null,
-  );
+  return useSyncExternalStore(subscribe, read, serverScope);
 }

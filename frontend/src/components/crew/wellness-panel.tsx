@@ -1,20 +1,22 @@
 "use client";
 
 import clsx from "clsx";
+import dynamic from "next/dynamic";
 import { useState } from "react";
-import { Bar, BarChart, CartesianGrid, Cell, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { confirm } from "@/lib/notify";
 import { HEALTH_LABEL, HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
 import { Button, Card, CardTitle, EmptyState, ErrorState, Field, Input } from "@/components/ui/primitives";
 import { useWellness, useWellnessCheckIn } from "@/lib/api/queries";
 import type { Wellness, WellnessEntry } from "@/lib/api/types";
-import { useThemeColors } from "@/lib/theme";
 import { SkeletonCard, SkeletonChart, SkeletonGroup, SkeletonText } from "@/components/ui/skeleton";
 
-const SLEEP_CAUTION = 6;
-const SLEEP_CRITICAL = 5;
+import { SLEEP_CAUTION, SLEEP_CRITICAL, dayLabel } from "./sleep-constants";
 
-const dayLabel = (iso: string) => new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+// The chart library loads only when this tab is opened.
+const SleepChart = dynamic(() => import("./sleep-chart").then((m) => m.SleepChart), {
+  ssr: false,
+  loading: () => <SkeletonChart height={224} />,
+});
 
 /**
  * Behavioural health for one crew member (the "isolation and confinement" hazard): two weeks of
@@ -61,41 +63,6 @@ export function WellnessPanel({ astronautId, name }: { astronautId: string; name
         </CardTitle>
         <DailyLog entries={w.entries.slice(0, 7)} />
       </Card>
-    </div>
-  );
-}
-
-function SleepChart({ entries }: { entries: WellnessEntry[] }) {
-  const theme = useThemeColors();
-  const data = [...entries]
-    .filter((e) => e.sleepHours > 0)
-    .reverse()
-    .map((e) => ({ day: dayLabel(e.date), hours: e.sleepHours, efficiency: e.sleepEfficiencyPct }));
-
-  const colorOf = (h: number) => (h < SLEEP_CRITICAL ? theme.critical : h < SLEEP_CAUTION ? theme.caution : theme.accent);
-
-  return (
-    <div className="h-56">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={data} margin={{ top: 8, right: 4, bottom: 0, left: -22 }}>
-          <CartesianGrid stroke={theme.grid} vertical={false} />
-          <XAxis dataKey="day" stroke={theme.axis} fontSize={11} tickLine={false} axisLine={false} minTickGap={12} />
-          <YAxis stroke={theme.axis} fontSize={11} tickLine={false} axisLine={false} domain={[0, 9]} ticks={[0, 3, 6, 9]} />
-          <ReferenceLine y={SLEEP_CAUTION} stroke={theme.caution} strokeDasharray="3 4" strokeOpacity={0.7} />
-          <Tooltip
-            cursor={{ fill: theme.grid }}
-            contentStyle={{ background: theme.panel, border: `1px solid ${theme.line}`, borderRadius: 10, fontSize: 12, padding: "8px 10px" }}
-            labelStyle={{ color: theme.muted, marginBottom: 4 }}
-            itemStyle={{ color: theme.ink, padding: 0 }}
-            formatter={(value, _name, item) => [`${value} h · ${(item.payload as { efficiency: number }).efficiency}% efficient`, "Sleep"]}
-          />
-          <Bar dataKey="hours" radius={[4, 4, 0, 0]} maxBarSize={28} isAnimationActive={false}>
-            {data.map((d) => (
-              <Cell key={d.day} fill={colorOf(d.hours)} fillOpacity={d.hours < SLEEP_CAUTION ? 0.9 : 0.75} />
-            ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
     </div>
   );
 }

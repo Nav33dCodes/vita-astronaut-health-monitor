@@ -28,14 +28,35 @@ export type TelemetryEvent =
 export const MAX_EVENTS = 600;
 const MAX_LIVE_READINGS = 120;
 
-function createStore<T>(initial: T) {
+/*
+ * Telemetry arrives in bursts (every crew member and the cabin within a few milliseconds).
+ * Stores update their value immediately but notify subscribers once per burst, so a burst of
+ * five packets costs one render instead of five.
+ */
+const BATCH_MS = 32;
+const dirty = new Set<() => void>();
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleNotify(notifyAll: () => void) {
+  dirty.add(notifyAll);
+  flushTimer ??= setTimeout(() => {
+    flushTimer = null;
+    const pending = [...dirty];
+    dirty.clear();
+    pending.forEach((notify) => notify());
+  }, BATCH_MS);
+}
+
+function createStore<T>(initial: T, { batched = false } = {}) {
   let value = initial;
   const listeners = new Set<() => void>();
+  const notifyAll = () => listeners.forEach((notify) => notify());
   return {
     get: () => value,
     set(next: T) {
       value = next;
-      listeners.forEach((notify) => notify());
+      if (batched) scheduleNotify(notifyAll);
+      else notifyAll();
     },
     subscribe(notify: () => void) {
       listeners.add(notify);
@@ -54,11 +75,11 @@ const INITIAL_STATUS: LinkStatus = {
 };
 
 export const linkStore = createStore<LinkStatus>(INITIAL_STATUS);
-export const eventStore = createStore<TelemetryEvent[]>([]);
-export const liveStore = createStore<Record<string, VitalReading[]>>({});
+export const eventStore = createStore<TelemetryEvent[]>([], { batched: true });
+export const liveStore = createStore<Record<string, VitalReading[]>>({}, { batched: true });
 
 /** Cabin environment pushed over SignalR, per mission (last MAX_HABITAT_READINGS). */
-export const habitatStore = createStore<Record<string, HabitatReading[]>>({});
+export const habitatStore = createStore<Record<string, HabitatReading[]>>({}, { batched: true });
 const MAX_HABITAT_READINGS = 180;
 
 /** Escalated alerts waiting for the operator to deal with the master-alarm popup. */
@@ -116,6 +137,44 @@ export function dismissAlarms() {
 export const useLinkStatus = () => useSyncExternalStore(linkStore.subscribe, linkStore.get, () => INITIAL_STATUS);
 
 export const useIsLive = () => useLinkStatus().state === "connected";
+
+// ---- Event rate (events in the trailing minute) ----------------------------------------------
+// Derived once for the whole app and published only when the number changes, so components
+// showing "24/min" don't re-render on every packet.
+
+const rateStore = createStore(0);
+let rateTimer: ReturnType<typeof setInterval> | null = null;
+let rateSubscribers = 0;
+
+function recomputeRate() {
+  const cutoff = Date.now() - 60_000;
+  let count = 0;
+  for (const event of eventStore.get()) {
+    if (event.at < cutoff) break; // newest first
+    count++;
+  }
+  if (count !== rateStore.get()) rateStore.set(count);
+}
+
+function subscribeRate(notify: () => void) {
+  const unsubscribe = rateStore.subscribe(notify);
+  const unsubscribeEvents = eventStore.subscribe(recomputeRate);
+  if (rateSubscribers++ === 0) {
+    recomputeRate();
+    rateTimer = setInterval(recomputeRate, 2_000); // lets the rate decay when the stream goes quiet
+  }
+  return () => {
+    unsubscribe();
+    unsubscribeEvents();
+    if (--rateSubscribers === 0 && rateTimer) {
+      clearInterval(rateTimer);
+      rateTimer = null;
+    }
+  };
+}
+
+/** Events per minute over the trailing minute. */
+export const useEventRate = () => useSyncExternalStore(subscribeRate, rateStore.get, () => 0);
 
 const EMPTY_EVENTS: TelemetryEvent[] = [];
 export const useEventLog = () => useSyncExternalStore(eventStore.subscribe, eventStore.get, () => EMPTY_EVENTS);

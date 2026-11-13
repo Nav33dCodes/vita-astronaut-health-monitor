@@ -3,13 +3,13 @@
 import clsx from "clsx";
 import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useMemo, useState, type ReactNode } from "react";
 import { AlertList } from "@/components/alerts/alert-list";
 import { CrewQuickView } from "@/components/crew/crew-quick-view";
 import { HazardSummaryRow } from "@/components/hazards/hazard-summary";
 import { TrendWatch } from "@/components/monitor/early-warning";
 import { CrewVitalsTable } from "@/components/overview/crew-vitals-table";
-import { FleetTrend } from "@/components/overview/fleet-trend";
 import { EventFeed } from "@/components/realtime/event-feed";
 import { HEALTH_COLOR, HEALTH_LABEL } from "@/components/ui/badges";
 import { AnimatedNumber, Sparkline, StackedBar } from "@/components/ui/data-viz";
@@ -26,7 +26,13 @@ import { useEventRate, useEventRateSeries, useFleetReadings } from "@/lib/realti
 import { useEventLog } from "@/lib/realtime/store";
 import { reports } from "@/lib/reports";
 import { HazardStripSkeleton, OverviewBodySkeleton } from "@/components/skeletons/page-skeletons";
-import { SkeletonGroup, SkeletonList, SkeletonTable } from "@/components/ui/skeleton";
+import { SkeletonChart, SkeletonGroup, SkeletonList, SkeletonTable } from "@/components/ui/skeleton";
+
+// Charts are the heaviest dependency: they load after the page is interactive.
+const FleetTrend = dynamic(() => import("@/components/overview/fleet-trend").then((m) => m.FleetTrend), {
+  ssr: false,
+  loading: () => <SkeletonChart height={260} />,
+});
 
 export default function OverviewPage() {
   const dashboard = useDashboard();

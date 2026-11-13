@@ -2,7 +2,7 @@
 
 import clsx from "clsx";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { CrewAvatar } from "@/components/ui/avatar";
 import { HEALTH_COLOR, HEALTH_TEXT, HealthBadge } from "@/components/ui/badges";
 import { Sparkline } from "@/components/ui/data-viz";
@@ -116,7 +116,7 @@ export function CrewVitalsTable({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <CrewRow key={row.astronaut.id} row={row} thresholds={thresholds} onSelect={onSelect} />
+              <CrewRow key={row.astronaut.id} astronaut={row.astronaut} readings={row.readings} thresholds={thresholds} onSelect={onSelect} />
             ))}
           </tbody>
         </table>
@@ -220,9 +220,20 @@ function Th({
   );
 }
 
-function CrewRow({ row, thresholds, onSelect }: { row: Row; thresholds: Threshold[]; onSelect: (id: string) => void }) {
-  const { astronaut: a, latest, readings } = row;
-  const { quality, ageSeconds } = useSignalQuality(latest?.recordedAtUtc);
+/** Memoized: re-renders only when this crew member's data (or the thresholds) change. */
+const CrewRow = memo(function CrewRow({
+  astronaut,
+  readings,
+  thresholds,
+  onSelect,
+}: {
+  astronaut: AstronautSummary;
+  readings: VitalReading[];
+  thresholds: Threshold[];
+  onSelect: (id: string) => void;
+}) {
+  const a = astronaut;
+  const latest = readings.at(-1);
   const hrStatus = statusOf("HeartRate", latest, thresholds);
 
   return (
@@ -286,22 +297,25 @@ function CrewRow({ row, thresholds, onSelect }: { row: Row; thresholds: Threshol
         )}
       </td>
       <td className={clsx(CELL, "hidden text-right whitespace-nowrap 2xl:table-cell")}>
-        <span
-          className={clsx(
-            "inline-flex items-center gap-1.5 text-[12px]",
-            quality === "live" ? "text-muted" : quality === "stale" ? "text-caution" : "text-faint",
-          )}
-        >
-          <span
-            aria-hidden
-            className={clsx("size-1.5 rounded-full", quality === "live" ? "bg-nominal" : quality === "stale" ? "bg-caution" : "bg-faint")}
-          />
-          <span className="tnum">
-            {ageSeconds === null ? "No signal" : ageSeconds < 60 ? `${ageSeconds}s` : `${Math.round(ageSeconds / 60)}m`}
-          </span>
-        </span>
+        <SignalAge lastPacketIso={latest?.recordedAtUtc} />
       </td>
     </tr>
+  );
+});
+
+/** Ticks every second on the shared clock; isolated so the rest of the row stays still. */
+function SignalAge({ lastPacketIso }: { lastPacketIso: string | undefined }) {
+  const { quality, ageSeconds } = useSignalQuality(lastPacketIso);
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center gap-1.5 text-[12px]",
+        quality === "live" ? "text-muted" : quality === "stale" ? "text-caution" : "text-faint",
+      )}
+    >
+      <span aria-hidden className={clsx("size-1.5 rounded-full", quality === "live" ? "bg-nominal" : quality === "stale" ? "bg-caution" : "bg-faint")} />
+      <span className="tnum">{ageSeconds === null ? "No signal" : ageSeconds < 60 ? `${ageSeconds}s` : `${Math.round(ageSeconds / 60)}m`}</span>
+    </span>
   );
 }
 

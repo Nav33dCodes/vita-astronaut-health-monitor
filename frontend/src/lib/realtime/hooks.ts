@@ -6,6 +6,8 @@ import type { VitalReading } from "@/lib/api/types";
 import { useNow } from "@/lib/time";
 import { useAllLiveReadings, useEventLog, useLiveReadings } from "./store";
 
+export { useEventRate } from "./store";
+
 const BUFFER = 60;
 
 /** Snapshot history merged with packets pushed over SignalR — the live monitor buffer. */
@@ -33,14 +35,28 @@ const mergeReadings = (history: VitalReading[] | undefined, live: VitalReading[]
     .slice(-BUFFER);
 };
 
-/** Live buffers for the whole fleet in one subscription: snapshot history + SignalR pushes. */
+// Per-astronaut memo shared by every caller: same inputs → the same merged array instance.
+const mergedCache = new Map<string, { history?: VitalReading[]; live?: VitalReading[]; merged: VitalReading[] }>();
+function mergedFor(id: string, history: VitalReading[] | undefined, live: VitalReading[] | undefined) {
+  const previous = mergedCache.get(id);
+  if (previous && previous.history === history && previous.live === live) return previous.merged;
+  const merged = mergeReadings(history, live);
+  mergedCache.set(id, { history, live, merged });
+  return merged;
+}
+
+/**
+ * Live buffers for the whole fleet in one subscription: snapshot history + SignalR pushes.
+ * Each astronaut's array keeps its identity until their own data changes, so memoized rows
+ * for everyone else skip re-rendering when one crew member's packet arrives.
+ */
 export function useFleetReadings(): { byAstronaut: Map<string, VitalReading[]>; isLoading: boolean } {
   const snapshot = useTelemetrySnapshot();
   const live = useAllLiveReadings();
 
   const byAstronaut = useMemo(() => {
     const ids = new Set([...(snapshot.data?.keys() ?? []), ...Object.keys(live)]);
-    return new Map([...ids].map((id) => [id, mergeReadings(snapshot.data?.get(id), live[id])]));
+    return new Map([...ids].map((id) => [id, mergedFor(id, snapshot.data?.get(id), live[id])]));
   }, [snapshot.data, live]);
 
   return { byAstronaut, isLoading: snapshot.isPending };
@@ -74,16 +90,3 @@ export function useSignalQuality(lastPacketIso: string | undefined): { quality: 
   return { quality: age < 20 ? "live" : age < 90 ? "stale" : "lost", ageSeconds: age };
 }
 
-/** Events per minute over the trailing minute. */
-export function useEventRate(): number {
-  const events = useEventLog();
-  const now = useNow(2000);
-  if (!now) return 0;
-  const cutoff = now.getTime() - 60_000;
-  let count = 0;
-  for (const event of events) {
-    if (event.at < cutoff) break; // newest first
-    count++;
-  }
-  return count;
-}

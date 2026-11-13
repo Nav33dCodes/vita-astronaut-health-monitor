@@ -1,5 +1,8 @@
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Reports;
 using AstroHealth.Domain.Astronauts;
+using AstroHealth.Domain.Hazards;
+using AstroHealth.Domain.Missions;
 using AstroHealth.Domain.Vitals;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
@@ -8,16 +11,23 @@ using static AstroHealth.Infrastructure.Reports.ReportTheme;
 
 namespace AstroHealth.Infrastructure.Reports;
 
-/// <summary>Fleet-wide shift report: KPIs, every crew member's status and latest vitals, open alerts, missions.</summary>
+/// <summary>
+/// Fleet health report: summary, the five hazards of spaceflight with each spacecraft's cabin
+/// environment, every crew member's status and vitals, open alerts and missions.
+/// </summary>
 internal sealed class FleetReportDocument(FleetReport report) : IDocument
 {
+    private const string Title = "Fleet health report";
     private const int MaxAlertRows = 25;
+
+    private readonly Dictionary<Guid, CrewHazardsResponse> _crewHazards =
+        report.Hazards?.Missions.SelectMany(m => m.Crew).ToDictionary(c => c.AstronautId) ?? [];
 
     public DocumentMetadata GetMetadata() => new()
     {
-        Title = $"{Brand} fleet health report",
+        Title = $"{Brand} {Title.ToLowerInvariant()}",
         Author = Brand,
-        Subject = "Crew health — fleet overview",
+        Subject = "Crew health across every active mission",
         CreationDate = report.GeneratedAtUtc
     };
 
@@ -25,40 +35,163 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
     {
         Page(page);
         var summary = report.Summary;
-        page.Header().Element(c => Header(c, "Fleet health report",
-            $"{summary.ActiveMissions} mission{(summary.ActiveMissions == 1 ? "" : "s")} in flight · {summary.TotalCrew} crew monitored", report.GeneratedAtUtc));
+        page.Header().SkipOnce().Element(c => RunningHeader(c, Title));
 
-        page.Content().PaddingTop(14).Column(column =>
+        page.Content().Column(column =>
         {
-            column.Item().Row(row =>
-            {
-                row.Spacing(7);
-                row.RelativeItem().Element(c => Kpi(c, "Crew", summary.TotalCrew.ToString(), Tone.Neutral, "monitored"));
-                row.RelativeItem().Element(c => Kpi(c, "Critical", summary.CrewHealth.Critical.ToString(),
-                    summary.CrewHealth.Critical > 0 ? Tone.Critical : Tone.Neutral, "crew members"));
-                row.RelativeItem().Element(c => Kpi(c, "Caution", summary.CrewHealth.Caution.ToString(),
-                    summary.CrewHealth.Caution > 0 ? Tone.Caution : Tone.Neutral, "crew members"));
-                row.RelativeItem().Element(c => Kpi(c, "Open alerts", summary.OpenAlerts.ToString(),
-                    summary.OpenCriticalAlerts > 0 ? Tone.Critical : summary.OpenAlerts > 0 ? Tone.Caution : Tone.Neutral,
-                    $"{summary.OpenCriticalAlerts} critical"));
-                row.RelativeItem().Element(c => Kpi(c, "Escalated", summary.EscalatedAlerts.ToString(),
-                    summary.EscalatedAlerts > 0 ? Tone.Critical : Tone.Neutral, "unacknowledged"));
-                row.RelativeItem().Element(c => Kpi(c, "Readings · 24h", summary.ReadingsLast24Hours.ToString("N0")));
-            });
+            var section = 0;
+            column.Item().Element(c => TitleBlock(c, "Fleet report", Title,
+                "Crew health across every active mission, assessed against NASA's five hazards of human spaceflight.",
+                [
+                    ("Report ID", $"FLT-{report.GeneratedAtUtc.UtcDateTime:yyyyMMdd-HHmm}"),
+                    ("Generated", Utc(report.GeneratedAtUtc)),
+                    ("Scope", $"{summary.ActiveMissions} mission{(summary.ActiveMissions == 1 ? "" : "s")} in flight · {summary.TotalCrew} crew"),
+                    ("Classification", Classification)
+                ]));
 
-            column.Item().Element(c => SectionTitle(c, "Crew status", $"{report.Crew.Count} astronauts · sorted by severity"));
+            column.Item().Element(c => Section(c, ++section, "Summary"));
+            column.Item().Element(Summary);
+
+            if (report.Hazards is { } hazards)
+            {
+                column.Item().Element(c => Section(c, ++section, "Five hazards of spaceflight", "NASA Human Research Program"));
+                column.Item().Element(c => HazardsTable(c, hazards));
+                if (hazards.Missions.Count > 0)
+                {
+                    column.Item().Element(c => Section(c, ++section, "Cabin environment", "latest reading per spacecraft"));
+                    column.Item().Element(c => CabinTable(c, hazards));
+                }
+            }
+
+            column.Item().Element(c => Section(c, ++section, "Crew status", $"{report.Crew.Count} crew · most severe first"));
             column.Item().Element(CrewTable);
 
-            column.Item().Element(c => SectionTitle(c, "Open alerts",
-                report.OpenAlerts.Count > MaxAlertRows ? $"showing {MaxAlertRows} most urgent" : "most urgent first"));
+            column.Item().Element(c => Section(c, ++section, "Open alerts",
+                report.OpenAlerts.Count > MaxAlertRows ? $"{MaxAlertRows} most urgent of {report.OpenAlerts.Count}" : "most urgent first"));
             column.Item().Element(AlertsTable);
 
-            column.Item().Element(c => SectionTitle(c, "Missions"));
+            column.Item().Element(c => Section(c, ++section, "Missions"));
             column.Item().Element(MissionsTable);
         });
 
-        page.Footer().Element(Footer);
+        page.Footer().Element(c => Footer(c, Title));
     });
+
+    private void Summary(IContainer container)
+    {
+        var s = report.Summary;
+        container.Row(row =>
+        {
+            row.Spacing(8);
+            row.RelativeItem().Element(c => Kpi(c, "Crew health", $"{s.CrewHealth.Nominal} of {s.TotalCrew}", Tone.Neutral,
+                $"nominal · {s.CrewHealth.Critical} critical · {s.CrewHealth.Caution} caution"));
+            row.RelativeItem().Element(c => Kpi(c, "Open alerts", s.OpenAlerts.ToString(),
+                s.OpenCriticalAlerts > 0 ? Tone.Critical : s.OpenAlerts > 0 ? Tone.Caution : Tone.Neutral,
+                $"{s.OpenCriticalAlerts} critical"));
+            row.RelativeItem().Element(c => Kpi(c, "Escalated", s.EscalatedAlerts.ToString(),
+                s.EscalatedAlerts > 0 ? Tone.Critical : Tone.Neutral, "awaiting acknowledgement"));
+            row.RelativeItem().Element(c => Kpi(c, "Missions in flight", s.ActiveMissions.ToString(), Tone.Neutral,
+                $"{report.Missions.Count} on the manifest"));
+            row.RelativeItem().Element(c => Kpi(c, "Readings, 24 h", s.ReadingsLast24Hours.ToString("N0"), Tone.Neutral, "telemetry samples"));
+        });
+    }
+
+    private static void HazardsTable(IContainer container, HazardOverviewResponse hazards)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.RelativeColumn(2.3f);
+                columns.RelativeColumn(1.1f);
+                columns.RelativeColumn(1.5f);
+                columns.RelativeColumn(4.2f);
+            });
+
+            table.Header(header =>
+            {
+                foreach (var title in new[] { "Hazard", "Fleet status", "Crew affected", "How VITA monitors it" })
+                {
+                    header.Cell().Element(HeadCell).Text(title);
+                }
+            });
+
+            foreach (var hazard in ReportHazards.Order)
+            {
+                var s = hazards.Summary.FirstOrDefault(x => x.Hazard == hazard);
+                var worst = s?.Worst ?? HealthStatus.Unknown;
+                var affected = (s?.Critical ?? 0) + (s?.Caution ?? 0);
+                IContainer Cell() => BodyCell(table.Cell(), false);
+
+                Cell().Text(ReportHazards.Label(hazard)).SemiBold();
+                Cell().Element(c => Pill(c, ReportHazards.StatusLabel(worst), ReportHazards.ToneOf(worst)));
+                Cell().Text(worst == HealthStatus.Unknown ? "Awaiting data" : affected == 0 ? "None" : $"{affected} ({s!.Critical} critical)")
+                    .FontColor(C(affected > 0 ? Ink : Muted));
+                Cell().Text(ReportHazards.Monitors(hazard)).FontSize(7.5f).FontColor(C(Muted));
+            }
+        });
+    }
+
+    private static void CabinTable(IContainer container, HazardOverviewResponse hazards)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.RelativeColumn(1.9f);
+                columns.RelativeColumn(1.3f);
+                for (var i = 0; i < 6; i++) columns.RelativeColumn(1f);
+                columns.RelativeColumn(1.1f);
+            });
+
+            table.Header(header =>
+            {
+                foreach (var title in new[] { "Spacecraft", "Signal delay", "CO₂ mmHg", "O₂ %", "kPa", "°C", "RH %", "mSv/day", "Status" })
+                {
+                    header.Cell().Element(HeadCell).Text(title);
+                }
+            });
+
+            foreach (var mission in hazards.Missions)
+            {
+                IContainer Cell() => BodyCell(table.Cell(), false);
+                Cell().Column(c =>
+                {
+                    c.Item().Text(mission.Name).SemiBold();
+                    c.Item().Text($"{Humanize(mission.Destination)} · day {mission.ElapsedDays}").FontSize(7).FontColor(C(Muted));
+                });
+                Cell().Column(c =>
+                {
+                    c.Item().Text(ReportHazards.SignalDelay(mission.CommunicationDelay));
+                    c.Item().Text(mission.CommunicationDelay.Autonomy == AutonomyLevel.EarthIndependent ? "Earth-independent" : "Earth-supported")
+                        .FontSize(7).FontColor(C(mission.CommunicationDelay.Autonomy == AutonomyLevel.EarthIndependent ? Caution : Muted));
+                });
+
+                if (mission.Habitat is not { } h)
+                {
+                    for (var i = 0; i < 6; i++) Cell().Text("—").FontColor(C(Faint));
+                    Cell().Element(c => Pill(c, "No data", Tone.Neutral));
+                    continue;
+                }
+
+                (HabitatMetric Metric, decimal Value, string Format)[] cells =
+                [
+                    (HabitatMetric.CarbonDioxide, h.CarbonDioxideMmHg, "0.0"),
+                    (HabitatMetric.Oxygen, h.OxygenPct, "0.0"),
+                    (HabitatMetric.CabinPressure, h.CabinPressureKpa, "0.0"),
+                    (HabitatMetric.CabinTemperature, h.CabinTemperatureC, "0.0"),
+                    (HabitatMetric.Humidity, h.HumidityPct, "0"),
+                    (HabitatMetric.RadiationDoseRate, h.RadiationDoseRateMsvPerDay, "0.00")
+                ];
+                foreach (var (metric, value, format) in cells)
+                {
+                    var tone = ReportHazards.HabitatTone(metric, value);
+                    Cell().Element(c => Value(c, value.ToString(format, System.Globalization.CultureInfo.InvariantCulture), tone == Tone.Nominal ? Tone.Neutral : tone));
+                }
+                Cell().Element(c => Pill(c, ReportHazards.StatusLabel(h.Status), ReportHazards.ToneOf(h.Status)));
+            }
+        });
+    }
 
     private static readonly Dictionary<HealthStatus, int> SeverityOrder = new()
     {
@@ -77,58 +210,64 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.RelativeColumn(2.4f); // astronaut
-                columns.RelativeColumn(2.2f); // role · mission
-                columns.RelativeColumn(1.3f); // status
-                columns.RelativeColumn(1.1f); // ews
-                columns.RelativeColumn(0.8f); // hr
+                columns.RelativeColumn(2.3f); // crew member
+                columns.RelativeColumn(1.2f); // status
+                columns.RelativeColumn(0.7f); // ews
+                columns.RelativeColumn(0.7f); // hr
                 columns.RelativeColumn(0.8f); // spo2
-                columns.RelativeColumn(1.1f); // bp
-                columns.RelativeColumn(0.8f); // temp
-                columns.RelativeColumn(1.6f); // last reading
+                columns.RelativeColumn(1f);   // bp
+                columns.RelativeColumn(0.7f); // temp
+                columns.RelativeColumn(1.5f); // mission dose
+                columns.RelativeColumn(1.3f); // last reading
             });
 
             table.Header(header =>
             {
-                foreach (var title in new[] { "ASTRONAUT", "ROLE · MISSION", "STATUS", "EWS", "HR", "SPO2", "BP", "TEMP", "LAST READING (UTC)" })
+                foreach (var title in new[] { "Crew member", "Status", "EWS", "HR", "SpO₂", "BP", "Temp", "Mission dose", "Last reading" })
                 {
                     header.Cell().Element(HeadCell).Text(title);
                 }
             });
 
-            for (var i = 0; i < rows.Count; i++)
+            foreach (var (a, latest) in rows.Select(r => (r.Astronaut, r.Latest)))
             {
-                var (a, latest) = (rows[i].Astronaut, rows[i].Latest);
-                var shaded = i % 2 == 1;
-                IContainer Cell() => BodyCell(table.Cell(), shaded);
+                IContainer Cell() => BodyCell(table.Cell(), false);
 
                 Cell().Column(c =>
                 {
                     c.Item().Text($"{a.FirstName} {a.LastName}").SemiBold();
-                    c.Item().Text(a.Agency).FontSize(7).FontColor(C(Muted));
+                    c.Item().Text($"{Humanize(a.Role)} · {a.MissionName ?? "Unassigned"}").FontSize(7).FontColor(C(Muted));
                 });
-                Cell().Column(c =>
-                {
-                    c.Item().Text(Humanize(a.Role));
-                    c.Item().Text(a.MissionName ?? "Unassigned").FontSize(7).FontColor(C(Muted));
-                });
-                Cell().Element(c => Pill(c, a.HealthStatus.ToString(), ToneOf(a.HealthStatus)));
+                Cell().Element(c => Pill(c, ReportHazards.StatusLabel(a.HealthStatus), ToneOf(a.HealthStatus)));
 
                 if (latest is null)
                 {
-                    Cell().Text("—").FontColor(C(Faint));
-                    for (var k = 0; k < 4; k++) Cell().Text("—").FontColor(C(Faint));
+                    for (var k = 0; k < 5; k++) Cell().Text("—").FontColor(C(Faint));
                 }
                 else
                 {
-                    Cell().Element(c => Pill(c, $"{latest.EarlyWarningScore} · {Humanize(latest.EarlyWarningRisk)}", ToneOf(latest.EarlyWarningRisk)));
-                    Cell().Element(c => Value(c, latest.HeartRateBpm.ToString(), ToneOf(latest.HeartRateBpm, threshold.GetValueOrDefault(VitalMetric.HeartRate)), true));
-                    Cell().Element(c => Value(c, Number(latest.OxygenSaturationPct), ToneOf(latest.OxygenSaturationPct, threshold.GetValueOrDefault(VitalMetric.OxygenSaturation)), true));
+                    Cell().Element(c => Value(c, latest.EarlyWarningScore.ToString(), ToneOf(latest.EarlyWarningRisk) == Tone.Nominal ? Tone.Neutral : ToneOf(latest.EarlyWarningRisk), true));
+                    Cell().Element(c => Value(c, latest.HeartRateBpm.ToString(), Flag(ToneOf(latest.HeartRateBpm, threshold.GetValueOrDefault(VitalMetric.HeartRate)))));
+                    Cell().Element(c => Value(c, Number(latest.OxygenSaturationPct), Flag(ToneOf(latest.OxygenSaturationPct, threshold.GetValueOrDefault(VitalMetric.OxygenSaturation)))));
                     var bpTone = (Tone)Math.Max(
                         (int)ToneOf(latest.SystolicMmHg, threshold.GetValueOrDefault(VitalMetric.SystolicPressure)),
                         (int)ToneOf(latest.DiastolicMmHg, threshold.GetValueOrDefault(VitalMetric.DiastolicPressure)));
-                    Cell().Element(c => Value(c, $"{latest.SystolicMmHg}/{latest.DiastolicMmHg}", bpTone, true));
-                    Cell().Element(c => Value(c, Number(latest.BodyTemperatureC), ToneOf(latest.BodyTemperatureC, threshold.GetValueOrDefault(VitalMetric.BodyTemperature)), true));
+                    Cell().Element(c => Value(c, $"{latest.SystolicMmHg}/{latest.DiastolicMmHg}", Flag(bpTone)));
+                    Cell().Element(c => Value(c, Number(latest.BodyTemperatureC), Flag(ToneOf(latest.BodyTemperatureC, threshold.GetValueOrDefault(VitalMetric.BodyTemperature)))));
+                }
+
+                if (_crewHazards.TryGetValue(a.Id, out var hz))
+                {
+                    var r = hz.Radiation;
+                    Cell().Column(c =>
+                    {
+                        c.Item().Text($"{r.MissionDoseMsv:0.0} mSv");
+                        c.Item().Text($"{r.PercentOfLimit:0.#}% of career limit").FontSize(6.8f).FontColor(C(r.PercentOfLimit >= 80 ? Caution : Muted));
+                    });
+                }
+                else
+                {
+                    Cell().Text("—").FontColor(C(Faint));
                 }
 
                 Cell().Text(a.LastReadingAtUtc is { } at ? Short(at) : "Never").FontSize(7.5f).FontColor(C(Muted));
@@ -136,11 +275,14 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
         });
     }
 
+    /// <summary>Only out-of-range values take a colour; in-range values stay ink.</summary>
+    private static Tone Flag(Tone tone) => tone == Tone.Nominal ? Tone.Neutral : tone;
+
     private void AlertsTable(IContainer container)
     {
         if (report.OpenAlerts.Count == 0)
         {
-            container.Element(c => Note(c, "No open alerts — all crew within safe limits."));
+            container.Element(c => Note(c, "No open alerts. Every crew member is within safe limits."));
             return;
         }
 
@@ -148,26 +290,24 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.RelativeColumn(1.4f);
-                columns.RelativeColumn(1.8f);
-                columns.RelativeColumn(4.0f);
+                columns.RelativeColumn(1.3f);
+                columns.RelativeColumn(1.7f);
+                columns.RelativeColumn(4.2f);
                 columns.RelativeColumn(1.1f);
-                columns.RelativeColumn(1.25f);
+                columns.RelativeColumn(1.1f);
             });
 
             table.Header(header =>
             {
-                foreach (var title in new[] { "RAISED (UTC)", "ASTRONAUT", "FINDING", "SEVERITY", "ESCALATION" })
+                foreach (var title in new[] { "Raised (UTC)", "Crew member", "Finding", "Severity", "Escalation" })
                 {
                     header.Cell().Element(HeadCell).Text(title);
                 }
             });
 
-            var alerts = report.OpenAlerts.Take(MaxAlertRows).ToList();
-            for (var i = 0; i < alerts.Count; i++)
+            foreach (var alert in report.OpenAlerts.Take(MaxAlertRows))
             {
-                var alert = alerts[i];
-                IContainer Cell() => BodyCell(table.Cell(), i % 2 == 1);
+                IContainer Cell() => BodyCell(table.Cell(), false);
 
                 Cell().Text(Short(alert.RaisedAtUtc)).FontSize(7.5f).FontColor(C(Muted));
                 Cell().Text(alert.AstronautName).SemiBold();
@@ -206,27 +346,25 @@ internal sealed class FleetReportDocument(FleetReport report) : IDocument
 
             table.Header(header =>
             {
-                foreach (var title in new[] { "MISSION", "DESTINATION", "STATUS", "LAUNCH", "CREW" })
+                foreach (var title in new[] { "Mission", "Destination", "Status", "Launch", "Crew" })
                 {
                     header.Cell().Element(HeadCell).Text(title);
                 }
             });
 
-            for (var i = 0; i < report.Missions.Count; i++)
+            foreach (var mission in report.Missions)
             {
-                var mission = report.Missions[i];
-                IContainer Cell() => BodyCell(table.Cell(), i % 2 == 1);
+                IContainer Cell() => BodyCell(table.Cell(), false);
 
                 Cell().Text(mission.Name).SemiBold();
                 Cell().Text(Humanize(mission.Destination));
-                Cell().Element(c => Pill(c, mission.Status.ToString(), mission.Status switch
+                Cell().Element(c => Pill(c, mission.Status == MissionStatus.Active ? "In flight" : mission.Status.ToString(), mission.Status switch
                 {
-                    Domain.Missions.MissionStatus.Active => Tone.Accent,
-                    Domain.Missions.MissionStatus.Completed => Tone.Nominal,
-                    Domain.Missions.MissionStatus.Aborted => Tone.Critical,
+                    MissionStatus.Active => Tone.Nominal,
+                    MissionStatus.Aborted => Tone.Critical,
                     _ => Tone.Neutral
                 }));
-                Cell().Text(mission.LaunchDate.ToString("dd MMM yyyy"));
+                Cell().Text(mission.LaunchDate.ToString("dd MMM yyyy", System.Globalization.CultureInfo.InvariantCulture));
                 Cell().Text(mission.CrewCount.ToString());
             }
         });

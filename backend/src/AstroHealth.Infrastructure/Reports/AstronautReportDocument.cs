@@ -1,5 +1,7 @@
+using AstroHealth.Application.Hazards;
 using AstroHealth.Application.Reports;
 using AstroHealth.Application.Vitals;
+using AstroHealth.Domain.Astronauts;
 using AstroHealth.Domain.Vitals;
 using QuestPDF.Fluent;
 using QuestPDF.Infrastructure;
@@ -8,14 +10,20 @@ using static AstroHealth.Infrastructure.Reports.ReportTheme;
 
 namespace AstroHealth.Infrastructure.Reports;
 
-/// <summary>Per-astronaut medical summary: identity, latest vitals, trend charts, statistics, early warning, alerts.</summary>
+/// <summary>
+/// Crew medical report for one person: status and early warning, latest vitals, the five hazards
+/// (radiation budget, sleep), trends, statistics, early-warning breakdown and alert history.
+/// </summary>
 internal sealed class AstronautReportDocument(AstronautReport report) : IDocument
 {
+    private const string Title = "Crew medical report";
     private readonly Dictionary<VitalMetric, ThresholdResponse> _thresholds = report.Thresholds.ToDictionary(t => t.Metric);
+
+    private string Name => $"{report.Astronaut.FirstName} {report.Astronaut.LastName}";
 
     public DocumentMetadata GetMetadata() => new()
     {
-        Title = $"{Brand} medical report — {report.Astronaut.FirstName} {report.Astronaut.LastName}",
+        Title = $"{Brand} {Title.ToLowerInvariant()}: {Name}",
         Author = Brand,
         Subject = "Crew medical summary",
         CreationDate = report.GeneratedAtUtc
@@ -24,71 +32,75 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
     public void Compose(IDocumentContainer container) => container.Page(page =>
     {
         Page(page);
-        page.Header().Element(c => Header(c, "Crew medical report",
-            $"Last {report.WindowHours} hours · {report.Stats.ReadingCount:N0} readings analysed", report.GeneratedAtUtc));
+        page.Header().SkipOnce().Element(c => RunningHeader(c, $"{Title} · {Name}"));
 
-        page.Content().PaddingTop(14).Column(column =>
+        page.Content().Column(column =>
         {
-            column.Item().Element(IdentityCard);
+            var a = report.Astronaut;
+            var section = 0;
 
-            column.Item().Element(c => SectionTitle(c, "Latest vitals",
-                report.Astronaut.LatestReading is { } r ? $"recorded {Utc(r.RecordedAtUtc)}" : null));
+            column.Item().Element(c => TitleBlock(c, Title, Name,
+                $"{Humanize(a.Role)} · {a.Agency} · {a.MissionName ?? "Unassigned"} · age {a.Age}",
+                [
+                    ("Report ID", $"MED-{a.LastName.ToUpperInvariant()}-{report.GeneratedAtUtc.UtcDateTime:yyyyMMdd-HHmm}"),
+                    ("Generated", Utc(report.GeneratedAtUtc)),
+                    ("Period", $"Last {report.WindowHours} h · {report.Stats.ReadingCount:N0} readings"),
+                    ("Classification", Classification)
+                ]));
+
+            column.Item().PaddingTop(12).Element(StatusStrip);
+
+            column.Item().Element(c => Section(c, ++section, "Latest vitals",
+                a.LatestReading is { } r ? $"recorded {Utc(r.RecordedAtUtc)}" : null));
             column.Item().Element(LatestVitals);
 
-            column.Item().Element(c => SectionTitle(c, "Trends", $"last {report.WindowHours}h · shaded band = safe range"));
+            if (report.Hazards is { } hazards)
+            {
+                column.Item().Element(c => Section(c, ++section, "Five hazards of spaceflight", "NASA Human Research Program"));
+                column.Item().Element(c => HazardsTable(c, hazards));
+                column.Item().PaddingTop(8).Element(c => RadiationAndSleep(c, hazards));
+            }
+
+            column.Item().Element(c => Section(c, ++section, "Trends", $"last {report.WindowHours} h · shaded band is the safe range"));
             column.Item().Element(Charts);
 
-            column.Item().Element(c => SectionTitle(c, "Statistics", $"last {report.WindowHours}h"));
+            column.Item().Element(c => Section(c, ++section, "Statistics", $"last {report.WindowHours} h"));
             column.Item().Element(StatisticsTable);
 
-            column.Item().Element(c => SectionTitle(c, "Early warning assessment", "adapted NEWS2 · trends over the last 60 min"));
+            column.Item().Element(c => Section(c, ++section, "Early warning assessment", "adapted NEWS2 · trends over the last 60 min"));
             column.Item().Element(EarlyWarning);
 
-            column.Item().Element(c => SectionTitle(c, "Alert history", "most recent 25"));
+            column.Item().Element(c => Section(c, ++section, "Alert history", "most recent 25"));
             column.Item().Element(AlertHistory);
         });
 
-        page.Footer().Element(Footer);
+        page.Footer().Element(c => Footer(c, Title));
     });
 
-    private void IdentityCard(IContainer container)
+    /// <summary>Health status, early warning score and open alerts, side by side.</summary>
+    private void StatusStrip(IContainer container)
     {
         var a = report.Astronaut;
         var assessment = report.Assessment;
+        var riskTone = assessment.Risk is { } risk ? ToneOf(risk) : Tone.Neutral;
 
-        container.Background(C(Panel)).Border(0.75f).BorderColor(C(Line)).CornerRadius(8).Padding(12).Row(row =>
+        container.Row(row =>
         {
-            row.RelativeItem().Column(column =>
+            row.Spacing(8);
+            row.RelativeItem().Element(c => Card(c).Column(column =>
             {
-                column.Item().Text($"{a.FirstName} {a.LastName}").FontSize(18).Bold();
-                column.Item().PaddingTop(2).Text($"{Humanize(a.Role)} · {a.Agency} · {a.MissionName ?? "Unassigned"}")
-                    .FontSize(8.5f).FontColor(C(Muted));
-                column.Item().Text($"Age {a.Age} · born {a.DateOfBirth:dd MMM yyyy} · {a.OpenAlerts} open alert{(a.OpenAlerts == 1 ? "" : "s")}")
-                    .FontSize(8).FontColor(C(Muted));
-            });
-
-            row.ConstantItem(92).AlignMiddle().Column(column =>
-            {
-                column.Item().AlignRight().Text("HEALTH STATUS").FontSize(6).SemiBold().LetterSpacing(0.1f).FontColor(C(Muted));
-                column.Item().PaddingTop(3).AlignRight().Element(c => Pill(c, a.HealthStatus.ToString(), ToneOf(a.HealthStatus)));
-            });
-
-            row.ConstantItem(12);
-
-            row.ConstantItem(96).AlignMiddle().Background(assessment.Risk is { } risk ? C(Palette(ToneOf(risk)).Bg) : C(Panel))
-                .CornerRadius(6).Padding(7).Column(column =>
-                {
-                    column.Item().AlignCenter().Text("EARLY WARNING").FontSize(6).SemiBold().LetterSpacing(0.1f).FontColor(C(Muted));
-                    column.Item().AlignCenter().Text(text =>
-                    {
-                        var tone = assessment.Risk is { } r ? ToneOf(r) : Tone.Neutral;
-                        text.Span(assessment.Score?.ToString() ?? "—").FontSize(20).Bold()
-                            .FontColor(C(tone == Tone.Neutral ? Ink : Palette(tone).Fg));
-                        text.Span($" / {EarlyWarningScore.MaxScore}").FontSize(8).FontColor(C(Muted));
-                    });
-                    column.Item().AlignCenter().Text(assessment.Risk is { } rk ? $"{Humanize(rk)} risk" : "No data")
-                        .FontSize(7).FontColor(C(Muted));
-                });
+                column.Item().Text("Health status").FontSize(7).Medium().FontColor(C(Muted));
+                column.Item().PaddingTop(5).Element(p => Pill(p, ReportHazards.StatusLabel(a.HealthStatus), ToneOf(a.HealthStatus)));
+                column.Item().PaddingTop(4).Text("Follows the most severe unresolved alert").FontSize(6.8f).FontColor(C(Muted));
+            }));
+            row.RelativeItem().Element(c => Kpi(c, "Early warning score",
+                assessment.Score is { } score ? $"{score} / {EarlyWarningScore.MaxScore}" : "—",
+                riskTone == Tone.Nominal ? Tone.Neutral : riskTone,
+                assessment.Risk is { } rk ? $"{Humanize(rk)} risk" : "Not enough data"));
+            row.RelativeItem().Element(c => Kpi(c, "Open alerts", a.OpenAlerts.ToString(),
+                a.OpenAlerts > 0 ? Tone.Caution : Tone.Neutral, a.OpenAlerts == 0 ? "none" : "see alert history"));
+            row.RelativeItem().Element(c => Kpi(c, "Readings analysed", report.Stats.ReadingCount.ToString("N0"), Tone.Neutral,
+                $"last {report.WindowHours} h"));
         });
     }
 
@@ -96,7 +108,7 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
     {
         if (report.Astronaut.LatestReading is not { } latest)
         {
-            container.Element(c => Note(c, "No vitals have been recorded for this astronaut yet."));
+            container.Element(c => Note(c, "No vitals have been recorded for this crew member yet."));
             return;
         }
 
@@ -111,30 +123,122 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
             {
                 var value = ValueOf(latest, t.Metric);
                 var tone = ToneOf(value, t);
-                table.Cell().Padding(3).Background(C(tone == Tone.Critical ? CriticalSoft : Panel))
-                    .Border(0.75f).BorderColor(C(tone == Tone.Critical ? Critical : Line)).CornerRadius(6).Padding(8).Column(column =>
+                var flagged = tone is Tone.Caution or Tone.Critical;
+                var noRate = t.Metric == VitalMetric.RadiationDose && latest.RadiationDoseRateMsvPerDay is null;
+
+                table.Cell().Padding(3).Element(c => Card(c, flagged ? Palette(tone).Fg : null).Column(column =>
+                {
+                    column.Item().Text(t.Label).FontSize(7).Medium().FontColor(C(Muted));
+                    column.Item().PaddingTop(2).Text(text =>
                     {
-                        column.Item().Text(t.Label.ToUpperInvariant()).FontSize(6).SemiBold().LetterSpacing(0.08f).FontColor(C(Muted));
-                        column.Item().PaddingTop(2).Text(text =>
-                        {
-                            text.Span(Number(value, t.Metric == VitalMetric.RadiationDose ? 2 : 1)).FontSize(15).Bold()
-                                .FontColor(C(tone == Tone.Neutral ? Ink : Palette(tone).Fg));
-                            text.Span(" " + DisplayUnit(t.Unit)).FontSize(7).FontColor(C(Muted));
-                        });
-                        column.Item().Text($"safe {SafeRange(t)}").FontSize(6.5f).FontColor(C(Faint));
+                        text.Span(noRate ? "—" : Number(value, t.Metric == VitalMetric.RadiationDose ? 2 : 1)).FontSize(15).SemiBold()
+                            .FontColor(C(flagged ? Palette(tone).Fg : Ink));
+                        text.Span(" " + DisplayUnit(t.Unit)).FontSize(7).FontColor(C(Muted));
                     });
+                    column.Item().Text($"Safe {SafeRange(t)}").FontSize(6.8f).FontColor(C(Faint));
+                }));
             }
+        });
+    }
+
+    private static void HazardsTable(IContainer container, CrewHazardsResponse hazards)
+    {
+        container.Table(table =>
+        {
+            table.ColumnsDefinition(columns =>
+            {
+                columns.RelativeColumn(2.3f);
+                columns.RelativeColumn(1.1f);
+                columns.RelativeColumn(5.4f);
+            });
+
+            table.Header(header =>
+            {
+                foreach (var title in new[] { "Hazard", "Status", "Assessment" })
+                {
+                    header.Cell().Element(HeadCell).Text(title);
+                }
+            });
+
+            foreach (var hazard in ReportHazards.Order)
+            {
+                var h = hazards.Hazards.FirstOrDefault(x => x.Hazard == hazard);
+                IContainer Cell() => BodyCell(table.Cell(), false);
+
+                Cell().Text(ReportHazards.Label(hazard)).SemiBold();
+                Cell().Element(c => Pill(c, ReportHazards.StatusLabel(h?.Status ?? HealthStatus.Unknown), ReportHazards.ToneOf(h?.Status ?? HealthStatus.Unknown)));
+                Cell().Column(c =>
+                {
+                    c.Item().Text(h?.Headline ?? "No data");
+                    if (h?.Detail is { } detail)
+                    {
+                        c.Item().Text(detail).FontSize(7.2f).FontColor(C(h.Status is HealthStatus.Caution or HealthStatus.Critical ? Palette(ToneOf(h.Status)).Fg : Muted));
+                    }
+                });
+            }
+        });
+    }
+
+    /// <summary>Radiation budget against the career limit, and the last week of sleep.</summary>
+    private void RadiationAndSleep(IContainer container, CrewHazardsResponse hazards)
+    {
+        var r = hazards.Radiation;
+        var wellness = report.Wellness;
+
+        container.Row(row =>
+        {
+            row.Spacing(8);
+
+            row.RelativeItem().Element(c => Card(c).Column(column =>
+            {
+                column.Item().Text("Radiation budget").FontSize(7).Medium().FontColor(C(Muted));
+                column.Item().PaddingTop(3).Text(text =>
+                {
+                    text.Span($"{r.MissionDoseMsv:0.0}").FontSize(17).SemiBold();
+                    text.Span($" mSv this mission").FontSize(7.5f).FontColor(C(Muted));
+                });
+                column.Item().PaddingTop(6).Element(b => Bar(b, r.PercentOfLimit,
+                    r.PercentOfLimit >= 100 ? Tone.Critical : r.PercentOfLimit >= 80 ? Tone.Caution : Tone.Neutral, 80));
+                column.Item().PaddingTop(4).Row(line =>
+                {
+                    line.RelativeItem().Text($"{r.PercentOfLimit:0.#}% of the {r.CareerLimitMsv:0} mSv career limit").FontSize(7).FontColor(C(Muted));
+                });
+                column.Item().PaddingTop(2).Text(r.CurrentRateMsvPerDay is { } rate
+                        ? $"Current rate {rate:0.00} mSv/day{(r.DaysToLimitAtCurrentRate is { } days ? $" · limit in {days:N0} days at this rate" : "")}"
+                        : "No dosimeter rate reported yet")
+                    .FontSize(7).FontColor(C(Muted));
+            }));
+
+            row.RelativeItem().Element(c => Card(c).Column(column =>
+            {
+                column.Item().Row(head =>
+                {
+                    head.RelativeItem().Text("Sleep, last 7 nights").FontSize(7).Medium().FontColor(C(Muted));
+                    if (wellness?.AverageSleepHours is { } avg)
+                    {
+                        head.AutoItem().Text($"{avg:0.0} h avg, last 3 nights").FontSize(7)
+                            .FontColor(C(avg < 5 ? Critical : avg < 6 ? Caution : Muted));
+                    }
+                });
+                column.Item().PaddingTop(5).Height(62)
+                    .Svg(SvgImage.FromText(ReportHazards.SleepChart(wellness?.Entries ?? [])));
+                var checkIn = wellness?.Entries.FirstOrDefault(e => e.Mood is not null);
+                column.Item().PaddingTop(3).Text(checkIn is null
+                        ? "No check-in this week"
+                        : $"Latest check-in {checkIn.Date:dd MMM}: mood {checkIn.Mood}/5 · stress {checkIn.Stress}/5 · workload {checkIn.Workload}/5")
+                    .FontSize(7).FontColor(C(Muted));
+            }));
         });
     }
 
     private void Charts(IContainer container)
     {
-        (VitalMetric Metric, string Color, Func<VitalSeriesPoint, decimal> Value)[] charts =
+        (VitalMetric Metric, Func<VitalSeriesPoint, decimal> Value)[] charts =
         [
-            (VitalMetric.HeartRate, Accent, p => p.HeartRateBpm),
-            (VitalMetric.OxygenSaturation, Violet, p => p.OxygenSaturationPct),
-            (VitalMetric.BodyTemperature, Caution, p => p.BodyTemperatureC),
-            (VitalMetric.RespiratoryRate, Nominal, p => p.RespiratoryRatePerMin)
+            (VitalMetric.HeartRate, p => p.HeartRateBpm),
+            (VitalMetric.OxygenSaturation, p => p.OxygenSaturationPct),
+            (VitalMetric.BodyTemperature, p => p.BodyTemperatureC),
+            (VitalMetric.RespiratoryRate, p => p.RespiratoryRatePerMin)
         ];
 
         container.Table(table =>
@@ -150,15 +254,15 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
                 var threshold = _thresholds.GetValueOrDefault(chart.Metric);
                 var points = report.Series.Points.Select(p => (p.RecordedAtUtc, chart.Value(p))).ToList();
 
-                table.Cell().Padding(3).Border(0.75f).BorderColor(C(Line)).CornerRadius(6).Padding(8).Column(column =>
+                table.Cell().Padding(3).Element(c => Card(c).Column(column =>
                 {
                     column.Item().Row(row =>
                     {
                         row.RelativeItem().Text(threshold?.Label ?? Humanize(chart.Metric)).FontSize(7.5f).SemiBold();
                         row.AutoItem().Text(threshold is null ? "" : DisplayUnit(threshold.Unit)).FontSize(7).FontColor(C(Faint));
                     });
-                    column.Item().PaddingTop(4).Height(105).Svg(SvgImage.FromText(ChartSvg.Line(points, threshold, chart.Color)));
-                });
+                    column.Item().PaddingTop(4).Height(100).Svg(SvgImage.FromText(ChartSvg.Line(points, threshold, Accent)));
+                }));
             }
         });
     }
@@ -182,26 +286,29 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
 
             table.Header(header =>
             {
-                foreach (var title in new[] { "METRIC", "MIN", "AVERAGE", "MAX", "LATEST", "SAFE RANGE" })
+                foreach (var title in new[] { "Metric", "Min", "Average", "Max", "Latest", "Safe range" })
                 {
                     header.Cell().Element(HeadCell).Text(title);
                 }
             });
 
-            var rows = report.Stats.Metrics.ToList();
-            for (var i = 0; i < rows.Count; i++)
+            foreach (var m in report.Stats.Metrics)
             {
-                var m = rows[i];
                 var t = _thresholds.GetValueOrDefault(m.Metric);
                 var decimals = m.Metric == VitalMetric.RadiationDose ? 2 : 1;
-                IContainer Cell() => BodyCell(table.Cell(), i % 2 == 1);
+                IContainer Cell() => BodyCell(table.Cell(), false);
+                Tone Flag(decimal v)
+                {
+                    var tone = ToneOf(v, t);
+                    return tone == Tone.Nominal ? Tone.Neutral : tone; // only out-of-range values take a colour
+                }
 
                 Cell().Text(t?.Label ?? Humanize(m.Metric)).SemiBold();
-                Cell().Element(c => Value(c, Number(m.Min, decimals), ToneOf(m.Min, t)));
-                Cell().Element(c => Value(c, Number(m.Average, decimals), ToneOf(m.Average, t)));
-                Cell().Element(c => Value(c, Number(m.Max, decimals), ToneOf(m.Max, t)));
-                Cell().Element(c => Value(c, Number(m.Latest, decimals), ToneOf(m.Latest, t), true));
-                Cell().Text(t is null ? "—" : SafeRange(t)).FontSize(7).FontColor(C(Muted));
+                Cell().Element(c => Value(c, Number(m.Min, decimals), Flag(m.Min)));
+                Cell().Element(c => Value(c, Number(m.Average, decimals), Flag(m.Average)));
+                Cell().Element(c => Value(c, Number(m.Max, decimals), Flag(m.Max)));
+                Cell().Element(c => Value(c, Number(m.Latest, decimals), Flag(m.Latest), true));
+                Cell().Text(t is null ? "—" : SafeRange(t)).FontSize(7.2f).FontColor(C(Muted));
             }
         });
     }
@@ -217,46 +324,43 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
 
         container.Row(row =>
         {
-            row.Spacing(10);
+            row.Spacing(8);
 
-            row.RelativeItem().Border(0.75f).BorderColor(C(Line)).CornerRadius(6).Padding(9).Column(column =>
+            row.RelativeItem().Element(c => Card(c).Column(column =>
             {
-                column.Item().PaddingBottom(4).Text("SCORE BREAKDOWN").FontSize(6).SemiBold().LetterSpacing(0.1f).FontColor(C(Muted));
+                column.Item().PaddingBottom(4).Text("Score breakdown").FontSize(7).Medium().FontColor(C(Muted));
                 foreach (var component in assessment.Components)
                 {
+                    var color = component.Points >= 3 ? Critical : component.Points >= 1 ? Caution : Nominal;
                     column.Item().PaddingVertical(2).Row(line =>
                     {
                         line.RelativeItem().Text(_thresholds.GetValueOrDefault(component.Metric)?.Label ?? Humanize(component.Metric));
                         line.ConstantItem(42).AlignRight().Text(Number(component.Value)).FontColor(C(Muted));
-                        line.ConstantItem(8);
-                        line.ConstantItem(22).AlignRight().Text($"{component.Points} pt")
-                            .FontSize(7).SemiBold().FontColor(C(component.Points >= 3 ? Critical : component.Points >= 1 ? Caution : Nominal));
-                        line.ConstantItem(6);
+                        line.ConstantItem(10);
                         for (var p = 1; p <= 3; p++)
                         {
-                            var filled = p <= component.Points;
-                            var color = component.Points >= 3 ? Critical : component.Points >= 1 ? Caution : Nominal;
-                            line.ConstantItem(10).PaddingHorizontal(1).AlignMiddle().Height(5)
-                                .Background(C(filled ? color : Line)).CornerRadius(1.5f);
+                            line.ConstantItem(12).PaddingHorizontal(1).AlignMiddle().Height(4)
+                                .Background(C(p <= component.Points ? color : Raised)).CornerRadius(2);
                         }
+                        line.ConstantItem(24).AlignRight().Text($"{component.Points} pt").FontSize(7).FontColor(C(component.Points > 0 ? color : Faint));
                     });
                 }
-            });
+            }));
 
-            row.RelativeItem().Border(0.75f).BorderColor(C(Line)).CornerRadius(6).Padding(9).Column(column =>
+            row.RelativeItem().Element(c => Card(c).Column(column =>
             {
-                column.Item().PaddingBottom(4).Text("TRENDS").FontSize(6).SemiBold().LetterSpacing(0.1f).FontColor(C(Muted));
+                column.Item().PaddingBottom(4).Text("Trends").FontSize(7).Medium().FontColor(C(Muted));
                 if (assessment.Trends.Count == 0)
                 {
-                    column.Item().Text("All vitals stable — no sustained deterioration detected.").FontColor(C(Muted));
+                    column.Item().Text("All vitals stable. No sustained deterioration detected.").FontColor(C(Muted));
                 }
                 foreach (var trend in assessment.Trends)
                 {
-                    var tone = trend.Severity == TrendSeverity.Watch ? Tone.Caution : Tone.Neutral;
-                    column.Item().PaddingVertical(2).Background(C(Palette(tone).Bg)).CornerRadius(4).Padding(5)
-                        .Text(trend.Message).FontSize(7.5f).FontColor(C(tone == Tone.Caution ? Caution : Ink));
+                    var watch = trend.Severity == TrendSeverity.Watch;
+                    column.Item().PaddingVertical(2).Background(C(watch ? CautionSoft : Panel)).CornerRadius(4).Padding(5)
+                        .Text(trend.Message).FontSize(7.5f).FontColor(C(watch ? Caution : Ink));
                 }
-            });
+            }));
         });
     }
 
@@ -272,25 +376,24 @@ internal sealed class AstronautReportDocument(AstronautReport report) : IDocumen
         {
             table.ColumnsDefinition(columns =>
             {
-                columns.RelativeColumn(1.5f);
+                columns.RelativeColumn(1.4f);
                 columns.RelativeColumn(4.4f);
                 columns.RelativeColumn(1.1f);
                 columns.RelativeColumn(1.3f);
-                columns.RelativeColumn(0.9f);
+                columns.RelativeColumn(0.8f);
             });
 
             table.Header(header =>
             {
-                foreach (var title in new[] { "RAISED (UTC)", "FINDING", "SEVERITY", "STATUS", "ESC." })
+                foreach (var title in new[] { "Raised (UTC)", "Finding", "Severity", "Status", "Escalation" })
                 {
                     header.Cell().Element(HeadCell).Text(title);
                 }
             });
 
-            for (var i = 0; i < report.Alerts.Count; i++)
+            foreach (var alert in report.Alerts)
             {
-                var alert = report.Alerts[i];
-                IContainer Cell() => BodyCell(table.Cell(), i % 2 == 1);
+                IContainer Cell() => BodyCell(table.Cell(), false);
 
                 Cell().Text(Short(alert.RaisedAtUtc)).FontSize(7.5f).FontColor(C(Muted));
                 Cell().Column(c =>

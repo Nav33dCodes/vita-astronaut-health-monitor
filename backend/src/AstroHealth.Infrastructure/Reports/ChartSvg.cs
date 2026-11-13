@@ -23,7 +23,7 @@ internal static class ChartSvg
 
         if (points.Count < 2)
         {
-            svg.Append(Invariant, $"<text x=\"{width / 2}\" y=\"{height / 2}\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"8\" fill=\"{ReportTheme.Faint}\">Not enough data</text></svg>");
+            svg.Append(Invariant, $"<text x=\"{width / 2}\" y=\"{height / 2}\" text-anchor=\"middle\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"8\" fill=\"{ReportTheme.Faint}\">Not enough data</text></svg>");
             return svg.ToString();
         }
 
@@ -47,7 +47,7 @@ internal static class ChartSvg
         {
             var bandTop = Y(threshold.WarningHigh is { } hi ? (double)hi : max);
             var bandBottom = Y(threshold.WarningLow is { } lo ? (double)lo : min);
-            svg.Append(Invariant, $"<rect x=\"{left}\" y=\"{bandTop:0.##}\" width=\"{plotW}\" height=\"{Math.Max(bandBottom - bandTop, 0):0.##}\" fill=\"{ReportTheme.Nominal}\" fill-opacity=\"0.08\"/>");
+            svg.Append(Invariant, $"<rect x=\"{left}\" y=\"{bandTop:0.##}\" width=\"{plotW}\" height=\"{Math.Max(bandBottom - bandTop, 0):0.##}\" fill=\"{ReportTheme.Nominal}\" fill-opacity=\"0.07\"/>");
         }
 
         // Gridlines + labels
@@ -56,12 +56,12 @@ internal static class ChartSvg
             var v = min + (max - min) * i / 3;
             var y = Y(v);
             svg.Append(Invariant, $"<line x1=\"{left}\" x2=\"{width - right}\" y1=\"{y:0.##}\" y2=\"{y:0.##}\" stroke=\"{ReportTheme.Line}\" stroke-width=\"0.6\"/>");
-            svg.Append(Invariant, $"<text x=\"{left - 4}\" y=\"{y + 2.5:0.##}\" text-anchor=\"end\" font-family=\"Arial\" font-size=\"6.5\" fill=\"{ReportTheme.Faint}\">{v:0.#}</text>");
+            svg.Append(Invariant, $"<text x=\"{left - 4}\" y=\"{y + 2.5:0.##}\" text-anchor=\"end\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"6.5\" fill=\"{ReportTheme.Faint}\">{v:0.#}</text>");
         }
 
         // Time labels (start / end)
-        svg.Append(Invariant, $"<text x=\"{left}\" y=\"{height - 4}\" font-family=\"Arial\" font-size=\"6.5\" fill=\"{ReportTheme.Faint}\">{points[0].At.UtcDateTime:dd MMM HH:mm}</text>");
-        svg.Append(Invariant, $"<text x=\"{width - right}\" y=\"{height - 4}\" text-anchor=\"end\" font-family=\"Arial\" font-size=\"6.5\" fill=\"{ReportTheme.Faint}\">{points[^1].At.UtcDateTime:dd MMM HH:mm} UTC</text>");
+        svg.Append(Invariant, $"<text x=\"{left}\" y=\"{height - 4}\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"6.5\" fill=\"{ReportTheme.Faint}\">{points[0].At.UtcDateTime:dd MMM HH:mm}</text>");
+        svg.Append(Invariant, $"<text x=\"{width - right}\" y=\"{height - 4}\" text-anchor=\"end\" font-family=\"Helvetica, Arial, sans-serif\" font-size=\"6.5\" fill=\"{ReportTheme.Faint}\">{points[^1].At.UtcDateTime:dd MMM HH:mm} UTC</text>");
 
         // Area + line
         var path = new StringBuilder();

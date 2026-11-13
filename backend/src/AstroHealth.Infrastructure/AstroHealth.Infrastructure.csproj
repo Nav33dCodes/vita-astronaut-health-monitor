@@ -22,11 +22,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Brand logo embedded in generated PDF reports. -->
-    <EmbeddedResource Include="Reports\Assets\*.png" />
-  </ItemGroup>
-
-  <ItemGroup>
     <InternalsVisibleTo Include="AstroHealth.Tests" />
   </ItemGroup>
 

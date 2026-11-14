@@ -50,7 +50,7 @@ internal static class ApiServiceExtensions
             // Credentials are required by the SignalR negotiate/WebSocket handshake.
             policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials()
                 // Lets the browser read the download file name of generated reports.
-                .WithExposedHeaders("Content-Disposition")));
+                .WithExposedHeaders("Content-Disposition", "X-Report-File")));
 
         services.AddRateLimiter(options =>
         {

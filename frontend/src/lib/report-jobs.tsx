@@ -58,6 +58,12 @@ async function readWithProgress(response: Response, onProgress: (ratio: number) 
   return new Blob(chunks, { type: response.headers.get("Content-Type") ?? undefined });
 }
 
+function mediaTypeOf(name: string): string | undefined {
+  if (name.endsWith(".pdf")) return "application/pdf";
+  if (name.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+  return undefined;
+}
+
 function saveBlob(blob: Blob, name: string): string {
   const url = URL.createObjectURL(blob);
   const link = Object.assign(document.createElement("a"), { href: url, download: name });
@@ -99,7 +105,14 @@ export async function runReportJob(option: ExportOption): Promise<void> {
   show({ phase: "generating" });
 
   try {
-    const response = await fetch(`${API_BASE_URL}${option.path}`, { signal: controller.signal });
+    // Download-manager extensions (IDM and similar) hijack any request whose path ends in ".pdf":
+    // the file still downloads, but this fetch fails. The API serves the same reports at
+    // extension-less paths and, for "application/octet-stream", without file-type hints.
+    const path = option.path.replace(/\.pdf(?=\?|$)/, "");
+    const response = await fetch(`${API_BASE_URL}${path}`, {
+      signal: controller.signal,
+      headers: { Accept: "application/octet-stream" },
+    });
     if (!response.ok) throw new ApiError(response.status, await response.json().catch(() => ({})));
 
     show({ phase: "downloading", progress: 0 });
@@ -112,8 +125,10 @@ export async function runReportJob(option: ExportOption): Promise<void> {
       }
     });
 
-    const name = fileNameFrom(response.headers.get("Content-Disposition"), option.fallbackName);
-    const url = saveBlob(blob, name);
+    const reported = response.headers.get("X-Report-File");
+    const name = reported ? decodeURIComponent(reported) : fileNameFrom(response.headers.get("Content-Disposition"), option.fallbackName);
+    // Restore the real type so "Open" previews the PDF in the browser.
+    const url = saveBlob(new Blob([blob], { type: mediaTypeOf(name) ?? blob.type }), name);
     show({ phase: "ready", fileName: name, sizeBytes: blob.size, url, seconds: (Date.now() - startedAt) / 1000 }, 8_000);
   } catch (error) {
     if (controller.signal.aborted) {

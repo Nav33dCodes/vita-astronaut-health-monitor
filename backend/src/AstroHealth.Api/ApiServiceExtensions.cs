@@ -19,6 +19,7 @@ internal static class ApiServiceExtensions
     public const string ReferenceCache = "reference";
     public const string DashboardCache = "dashboard";
     public const string AssessmentsCache = "assessments";
+    public const string HazardsCache = "hazards";
     private const string CorsPolicy = "frontend";
 
     public static IServiceCollection AddApi(this IServiceCollection services, IConfiguration configuration)
@@ -76,6 +77,7 @@ internal static class ApiServiceExtensions
         {
             options.AddPolicy(ReferenceCache, b => b.Expire(TimeSpan.FromHours(1)).Tag(ReferenceCache));
             options.AddPolicy(DashboardCache, b => b.Expire(TimeSpan.FromSeconds(5)).Tag(DashboardCache));
+            options.AddPolicy(HazardsCache, b => b.Expire(TimeSpan.FromSeconds(15)).Tag(HazardsCache));
             options.AddPolicy(AssessmentsCache, b => b.Expire(TimeSpan.FromSeconds(15)).SetVaryByQuery("windowMinutes").Tag(AssessmentsCache));
         });
 

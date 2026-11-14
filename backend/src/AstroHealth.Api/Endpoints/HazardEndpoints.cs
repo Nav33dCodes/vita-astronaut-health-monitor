@@ -14,7 +14,8 @@ internal static class HazardEndpoints
     {
         app.MapGet("hazards", async (IHazardService hazards, CancellationToken ct) => TypedResults.Ok(await hazards.GetOverviewAsync(ct)))
             .WithTags("Hazards").WithName("GetHazardOverview")
-            .WithSummary("Every active mission and crew member assessed against the five hazards of spaceflight");
+            .WithSummary("Every active mission and crew member assessed against the five hazards of spaceflight")
+            .CacheOutput(ApiServiceExtensions.HazardsCache);
 
         app.MapGet("hazards/playbook", (IHazardService hazards) => TypedResults.Ok(hazards.GetPlaybook()))
             .WithTags("Hazards").WithName("GetCrewPlaybook")

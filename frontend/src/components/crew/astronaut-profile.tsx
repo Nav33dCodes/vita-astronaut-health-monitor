@@ -33,7 +33,7 @@ const VitalsChart = dynamic(() => import("./vitals-chart").then((m) => m.VitalsC
   loading: () => <SkeletonChart height={320} />,
 });
 import { ProfileSkeleton } from "@/components/skeletons/page-skeletons";
-import { SkeletonChart, SkeletonList } from "@/components/ui/skeleton";
+import { SkeletonChart, SkeletonGroup, SkeletonList, SkeletonText } from "@/components/ui/skeleton";
 
 const WINDOWS = [
   { value: 24, label: "24h" },
@@ -289,6 +289,10 @@ function OverviewTab({
                   <p className="mb-2 text-[12px] font-medium text-muted">Radiation · career limit</p>
                   <RadiationBudgetBar budget={radiation} />
                 </div>
+              ) : hazards.isPending ? (
+                <SkeletonGroup label="Loading radiation budget">
+                  <SkeletonText lines={2} />
+                </SkeletonGroup>
               ) : (
                 <p className="text-[12.5px] text-muted">Radiation budget is tracked while on an active mission.</p>
               )}

@@ -67,6 +67,25 @@ public class CrewHealthFlowTests(ApiFactory factory) : IClassFixture<ApiFactory>
     }
 
     [Fact]
+    public async Task Alert_closes_itself_once_the_vital_has_been_back_in_range()
+    {
+        var astronaut = await CreateAstronautAsync();
+        var url = $"/api/v1/astronauts/{astronaut.Id}/vitals";
+        var now = DateTimeOffset.UtcNow;
+
+        await _client.PostAsJsonAsync(url, Vitals(heartRate: 120) with { RecordedAtUtc = now.AddMinutes(-30) }, ApiFactory.Json);
+
+        // A normal sample inside the hold period must not hide the alert.
+        await _client.PostAsJsonAsync(url, Vitals() with { RecordedAtUtc = now.AddMinutes(-25) }, ApiFactory.Json);
+        var held = await _client.GetFromJsonAsync<AstronautDetailResponse>($"/api/v1/astronauts/{astronaut.Id}", ApiFactory.Json);
+        Assert.Equal(HealthStatus.Caution, held!.HealthStatus);
+
+        await _client.PostAsJsonAsync(url, Vitals() with { RecordedAtUtc = now.AddMinutes(-1) }, ApiFactory.Json);
+        var recovered = await _client.GetFromJsonAsync<AstronautDetailResponse>($"/api/v1/astronauts/{astronaut.Id}", ApiFactory.Json);
+        Assert.Equal(HealthStatus.Nominal, recovered!.HealthStatus);
+    }
+
+    [Fact]
     public async Task Resolving_alerts_returns_astronaut_to_nominal()
     {
         var astronaut = await CreateAstronautAsync();

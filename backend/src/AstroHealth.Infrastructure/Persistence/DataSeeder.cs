@@ -1,4 +1,5 @@
 using AstroHealth.Application.Vitals;
+using AstroHealth.Domain.Alerts;
 using AstroHealth.Domain.Astronauts;
 using AstroHealth.Domain.Missions;
 using Microsoft.EntityFrameworkCore;
@@ -6,27 +7,39 @@ using Microsoft.Extensions.Logging;
 
 namespace AstroHealth.Infrastructure.Persistence;
 
-/// <summary>Populates an empty database with realistic demo crews and three days of vitals.</summary>
+/// <summary>
+/// Populates an empty database with realistic demo crews and three days of vitals, and keeps an
+/// existing demo database presentable between runs. Missions are fictional: no real programme names.
+/// </summary>
 internal sealed class DataSeeder(AppDbContext db, IVitalService vitals, TimeProvider clock, ILogger<DataSeeder> logger)
 {
     private const int DaysOfHistory = 3;
     private const int HoursBetweenReadings = 4;
 
+    /// <summary>Alerts left open this long belong to an earlier demo session, not to the live picture.</summary>
+    private static readonly TimeSpan StaleAlertAge = TimeSpan.FromHours(12);
+
+    /// <summary>Earlier builds seeded real programme names; existing databases are renamed in place.</summary>
+    private static readonly (string Old, string New, string Description)[] Renames =
+    [
+        ("Artemis III", "Selene III", "Crewed landing and surface operations near the lunar south pole."),
+        ("Expedition 74", "Meridian Station 7", "Long-duration science expedition aboard an orbital station."),
+        ("Ares Pathfinder", "Red Horizon", "Crewed Mars transit and surface operations demonstration.")
+    ];
+
     public async Task SeedAsync(CancellationToken ct)
     {
         if (await db.Missions.AnyAsync(ct))
         {
+            await RefreshDemoAsync(ct);
             return;
         }
 
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 
-        var artemis = new Mission("Artemis III", MissionDestination.Lunar, today.AddDays(-12),
-            "First crewed lunar landing of the Artemis program near the lunar south pole.");
-        var expedition = new Mission("Expedition 74", MissionDestination.LowEarthOrbit, today.AddDays(-95),
-            "Long-duration science expedition aboard the International Space Station.");
-        var ares = new Mission("Ares Pathfinder", MissionDestination.Mars, today.AddYears(2),
-            "Crewed Mars transit and surface operations demonstration.");
+        var artemis = new Mission(Renames[0].New, MissionDestination.Lunar, today.AddDays(-12), Renames[0].Description);
+        var expedition = new Mission(Renames[1].New, MissionDestination.LowEarthOrbit, today.AddDays(-95), Renames[1].Description);
+        var ares = new Mission(Renames[2].New, MissionDestination.Mars, today.AddYears(2), Renames[2].Description);
         artemis.ChangeStatus(MissionStatus.Active);
         expedition.ChangeStatus(MissionStatus.Active);
 
@@ -76,6 +89,34 @@ internal sealed class DataSeeder(AppDbContext db, IVitalService vitals, TimeProv
         }
 
         logger.LogInformation("Seeded {Missions} missions and {Crew} astronauts with vitals history", 3, crew.Length);
+    }
+
+    private async Task RefreshDemoAsync(CancellationToken ct)
+    {
+        var names = await db.Missions.Select(m => m.Name).ToListAsync(ct);
+        foreach (var (old, @new, description) in Renames)
+        {
+            if (names.Contains(old) && !names.Contains(@new))
+            {
+                await db.Missions.Where(m => m.Name == old)
+                    .ExecuteUpdateAsync(s => s.SetProperty(m => m.Name, @new).SetProperty(m => m.Description, description), ct);
+            }
+        }
+
+        var now = clock.GetUtcNow();
+        var cutoff = now - StaleAlertAge;
+        var closed = await db.HealthAlerts
+            .Where(a => a.Status != AlertStatus.Resolved && a.RaisedAtUtc < cutoff)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(a => a.Status, AlertStatus.Resolved)
+                .SetProperty(a => a.ResolvedAtUtc, now)
+                .SetProperty(a => a.AcknowledgedAtUtc, a => a.AcknowledgedAtUtc ?? now)
+                .SetProperty(a => a.ResolutionNote, "Closed automatically: left over from an earlier session."), ct);
+
+        if (closed > 0)
+        {
+            logger.LogInformation("Closed {Count} stale alert(s) from earlier sessions", closed);
+        }
     }
 
     private static RecordVitalsRequest NormalReading(Random random, DateTimeOffset at) => new(

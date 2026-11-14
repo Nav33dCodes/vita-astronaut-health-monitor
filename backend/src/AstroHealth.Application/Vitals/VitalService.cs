@@ -60,7 +60,9 @@ internal sealed class VitalService(
 
         db.VitalReadings.Add(reading);
 
-        var raised = await RaiseAlertsAsync(reading, ct);
+        var findings = HealthEvaluator.Evaluate(reading);
+        var raised = await RaiseAlertsAsync(reading, findings, ct);
+        var recovered = await ResolveRecoveredAsync(reading, findings, ct);
         await db.SaveChangesAsync(ct);
 
         if (raised.Count > 0)
@@ -78,6 +80,11 @@ internal sealed class VitalService(
         foreach (var alert in response.RaisedAlerts)
         {
             await publisher.AlertRaisedAsync(alert, CancellationToken.None);
+        }
+
+        foreach (var alert in recovered)
+        {
+            await publisher.AlertUpdatedAsync(AlertResponse.From(alert, name), CancellationToken.None);
         }
 
         return response;
@@ -103,9 +110,8 @@ internal sealed class VitalService(
     /// Raises an alert for each finding, unless an unresolved alert of equal or higher severity
     /// already exists for the same metric. This prevents alert floods while still escalating.
     /// </summary>
-    private async Task<List<HealthAlert>> RaiseAlertsAsync(VitalReading reading, CancellationToken ct)
+    private async Task<List<HealthAlert>> RaiseAlertsAsync(VitalReading reading, IReadOnlyList<HealthFinding> findings, CancellationToken ct)
     {
-        var findings = HealthEvaluator.Evaluate(reading);
         if (findings.Count == 0)
         {
             return [];
@@ -126,6 +132,36 @@ internal sealed class VitalService(
 
         db.HealthAlerts.AddRange(alerts);
         return alerts;
+    }
+
+    /// <summary>How long a vital must have been alerting before a normal reading may close the alert.</summary>
+    private static readonly TimeSpan RecoveryHold = TimeSpan.FromMinutes(10);
+
+    /// <summary>
+    /// Closes unresolved alerts whose vital is back inside its safe range in this reading, so a crew
+    /// member's status follows their current condition instead of an episode that has passed. The
+    /// alert stays in the history with <see cref="HealthAlert.RecoveredNote"/>. A short hold keeps a
+    /// single normal sample from hiding an alert nobody has had time to see.
+    /// </summary>
+    private async Task<List<HealthAlert>> ResolveRecoveredAsync(VitalReading reading, IReadOnlyList<HealthFinding> findings, CancellationToken ct)
+    {
+        var heldUntil = reading.RecordedAtUtc - RecoveryHold;
+        var candidates = await db.HealthAlerts
+            .Where(a => a.AstronautId == reading.AstronautId && a.Status != AlertStatus.Resolved && a.RaisedAtUtc <= heldUntil)
+            .ToListAsync(ct);
+
+        var recovered = candidates
+            .Where(a => findings.All(f => f.Metric != a.Metric))
+            // No dose rate in this reading means radiation was not measured, not that it is safe.
+            .Where(a => a.Metric != VitalMetric.RadiationDose || reading.RadiationDoseRateMsvPerDay is not null)
+            .ToList();
+
+        foreach (var alert in recovered)
+        {
+            alert.Resolve(reading.RecordedAtUtc, HealthAlert.RecoveredNote);
+        }
+
+        return recovered;
     }
 
     public async Task<Result<PagedResult<VitalReadingResponse>>> ListAsync(Guid astronautId, VitalsQuery query, CancellationToken ct)

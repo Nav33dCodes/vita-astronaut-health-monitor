@@ -124,6 +124,7 @@ The Protocols page maps every NASA HRP risk to the VITA feature that covers it a
 ### Alerting and escalation
 - Every alert follows an `Open → Acknowledged → Resolved` lifecycle. Repeat findings are de-duplicated, and an alert that worsens raises a new one.
 - A critical alert that stays unacknowledged for **2 minutes** triggers a **master alarm**: a full-screen takeover, an alarm tone and a desktop notification. It then climbs one level every 5 minutes.
+- An alert **closes itself** once the vital has been back in its safe range for 10 minutes, so a crew member's status follows their current condition. The alert stays in the history.
 - The **action queue** on the Overview and **bulk actions** in the Alerts page let you clear alerts in seconds.
 
 ### Reports
@@ -210,7 +211,7 @@ frontend/src/
 | **Data** | PostgreSQL on Neon (production) · SQLite (zero-setup local development) |
 | **Reports** | QuestPDF (PDF) · ClosedXML (Excel) |
 | **Frontend** | Next.js 16 (App Router, Cache Components), React 19, TypeScript, Tailwind CSS 4, TanStack Query, Recharts, cmdk, Zod |
-| **Quality** | 95 xUnit unit and integration tests, typed API contracts, strict TypeScript and ESLint |
+| **Quality** | 96 xUnit unit and integration tests, typed API contracts, strict TypeScript and ESLint |
 
 ## Getting started
 

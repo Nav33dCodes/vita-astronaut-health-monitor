@@ -83,6 +83,9 @@ public sealed class HealthAlert : Entity
         return Result.Success();
     }
 
+    /// <summary>Note written when an alert closes itself because the vital returned to its safe range.</summary>
+    public const string RecoveredNote = "Closed automatically: the value returned to its safe range.";
+
     public Result Resolve(DateTimeOffset nowUtc, string? note)
     {
         if (Status == AlertStatus.Resolved)

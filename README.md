@@ -10,9 +10,9 @@ Real-time crew health monitoring for long-duration space missions.
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4?style=flat-square&logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![Next.js 16](https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=flat-square&logo=postgresql&logoColor=white)](https://neon.tech/)
-[![SignalR](https://img.shields.io/badge/Realtime-SignalR-5B6CFF?style=flat-square)](https://learn.microsoft.com/aspnet/core/signalr/introduction)
+[![SignalR](https://img.shields.io/badge/Realtime-SignalR-4F5FF0?style=flat-square)](https://learn.microsoft.com/aspnet/core/signalr/introduction)
 
-[Challenge](#the-challenge) · [Product tour](#product-tour) · [Features](#features) · [Design](#design-system) · [Architecture](#architecture) · [Getting started](#getting-started) · [API](#api)
+[Challenge](#the-challenge) · [Submission](#nasa-space-apps-challenge-2026) · [Product tour](#product-tour) · [Features](#features) · [Design](#design-system) · [Architecture](#architecture) · [Getting started](#getting-started) · [API](#api)
 
 <br />
 
@@ -27,6 +27,24 @@ Real-time crew health monitoring for long-duration space missions.
 Built for the **2026 NASA Space Apps Challenge**: *Create Health Monitoring Software for Astronauts on Space Missions*.
 
 Long-duration missions expose crews to radiation, isolation, altered gravity and limited medical support. Far from Earth, the crew and flight surgeons have to spot deterioration early and act on it, often before any single reading crosses a limit.
+
+## NASA Space Apps Challenge 2026
+
+| | |
+|---|---|
+| **Event** | [NASA International Space Apps Challenge](https://www.spaceappschallenge.org/) 2026 · *The Next Frontier* |
+| **Challenge** | Create Health Monitoring Software for Astronauts on Space Missions |
+| **Team** | Team Apogee, a solo entry by Naveed Ahmed (computer science student, .NET backend developer) |
+| **Project** | VITA: Vital Integrated Telemetry for Astronauts |
+
+**How VITA answers the challenge**
+
+| The challenge asks for | What VITA does |
+|---|---|
+| Software that monitors astronaut health | Streams seven vital signs per crew member in real time and checks each one against a clinical safe range. |
+| Awareness of the risks of spaceflight | Assesses every crew member against NASA's five hazards, with radiation budget, sleep and mood, signal delay and cabin air. |
+| Support when help from Earth is slow | Predicts problems from trends, escalates unanswered alerts, and gives onboard first-response checklists for missions beyond the Moon. |
+| Information the medical team can use | One-click PDF medical reports and Excel workbooks built from the live data. |
 
 ## Our solution
 
@@ -51,6 +69,17 @@ The interface follows one rule: **calm by default, loud only when it matters.** 
   <tr>
     <td align="center"><sub><b>Overview</b> in dark theme</sub></td>
     <td align="center"><sub><b>Live monitor</b> with a real-time alert notification</sub></td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/hazards.jpg" alt="Hazards page: five-hazards summary, cabin environment and crew exposure" /></td>
+    <td width="50%"><img src="docs/screenshots/crew-profile.jpg" alt="Crew profile with latest vitals, early warning score and trend projection" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Hazards</b>: NASA's five hazards for every crew member</sub></td>
+    <td align="center"><sub><b>Crew profile</b>: vitals, early warning and trend projection</sub></td>
   </tr>
 </table>
 
@@ -98,8 +127,8 @@ The Protocols page maps every NASA HRP risk to the VITA feature that covers it a
 - The **action queue** on the Overview and **bulk actions** in the Alerts page let you clear alerts in seconds.
 
 ### Reports
-- **PDF** fleet and medical reports with vector charts.
-- **Excel** workbooks with real tables, live conditional formatting and formula-driven summaries.
+- **PDF** fleet and medical reports with vector charts, a five-hazards section and each astronaut's radiation budget.
+- **Excel** workbooks with real tables, live conditional formatting, formula-driven summaries and a hazards sheet.
 - Reports are generated on the server, with live progress in a notification. You can keep working while a report builds.
 
 ### Built for speed
@@ -129,7 +158,7 @@ VITA has an enterprise look: minimal, neutral and quiet, with every visual decis
 |---|---|
 | **Typography** | [Inter](https://rsms.me/inter/) for the interface, with tabular figures so live numbers never shift. JetBrains Mono for timestamps and clocks. |
 | **Wordmark** | No logo, only the name: wide-tracked "VITA", where the full stop is a live uplink indicator (green when live, red when offline). |
-| **Colour** | Neutral surfaces with one accent (indigo `#5B6CFF`). Green, amber and red are reserved for health status and never used as decoration. |
+| **Colour** | Neutral surfaces with one accent (indigo `#4F5FF0`). Green, amber and red are reserved for health status and never used as decoration. |
 | **Themes** | Light by default, plus a tuned dark theme. Both are built from the same tokens in [`globals.css`](frontend/src/app/globals.css). |
 | **Motion** | Transitions of 150–250 ms on `transform` and `opacity` only. Only a critical status pulses. `prefers-reduced-motion` is respected. |
 | **Accessibility** | Visible focus rings, keyboard operability throughout, ARIA roles on custom controls, and contrast-safe status fills. |
@@ -181,7 +210,7 @@ frontend/src/
 | **Data** | PostgreSQL on Neon (production) · SQLite (zero-setup local development) |
 | **Reports** | QuestPDF (PDF) · ClosedXML (Excel) |
 | **Frontend** | Next.js 16 (App Router, Cache Components), React 19, TypeScript, Tailwind CSS 4, TanStack Query, Recharts, cmdk, Zod |
-| **Quality** | xUnit unit and integration tests, typed API contracts, strict TypeScript and ESLint |
+| **Quality** | 95 xUnit unit and integration tests, typed API contracts, strict TypeScript and ESLint |
 
 ## Getting started
 
@@ -293,6 +322,31 @@ The backend tests cover the clinical rules, the early-warning score, trend detec
 - Exercise countermeasure logging for bone and muscle loss
 - Docker Compose and a CI pipeline
 
+## NASA data and resources
+
+VITA is built on the resources NASA provided for this challenge:
+
+| Resource | How VITA uses it |
+|---|---|
+| [5 Hazards of Human Spaceflight](https://www.nasa.gov/hrp/hazards/) (NASA Human Research Program) | The structure of the whole product: the Hazards page, the hazard strip on the Overview and the hazards section of every report. |
+| [Risks of Human Spaceflight](https://www.nasa.gov/hrp/risks) (NASA Human Research Program) | The Protocols page maps each risk to the VITA feature that monitors it. |
+| Ongoing HRP Research in Space, including ARCHeR on Artemis II | The model for sleep, activity and light monitoring under the isolation hazard. |
+| NASA-STD-3001 Volume 1 | Reference ranges for vital signs and the 600 mSv career radiation limit. |
+
+Space agency partner resources: the Canadian Space Agency's work on monitoring radiation for astronaut health (Canadian Active Neutron Spectrometer) informed the radiation dose-rate monitoring.
+
+All telemetry in VITA is simulated. No NASA logos, insignia or other NASA branding are used anywhere in the project.
+
+## Use of AI
+
+AI tools were used in this project, as the Space Apps rules allow, and are acknowledged here:
+
+- **Claude (Anthropic)** assisted with ideation, research on the NASA resources, parts of the code and debugging, the interface design, the report templates, this documentation and the demo slides.
+- No AI-generated images, video or audio are used. Every screenshot shows the real, running application.
+- VITA itself contains no AI or machine-learning model. The early-warning score is rule-based (adapted from NEWS2) and trend prediction is a linear regression.
+
+The architecture decisions, review, testing and integration were done by the author.
+
 ## Sources
 
 - NASA Human Research Program: [the five hazards of human spaceflight](https://www.nasa.gov/hrp/hazards/), the risks of human spaceflight and the [Human Research Roadmap](https://www.nasa.gov/hrp/)
@@ -309,5 +363,5 @@ NASA does not endorse any non-U.S. Government entity and is not responsible for 
 VITA is a hackathon prototype for demonstration purposes. Its reference ranges are loosely based on NASA-STD-3001, its early-warning score is adapted from NEWS2 (Royal College of Physicians), and its onboard checklists are illustrative. Telemetry is simulated, calibrated to the published figures above. **It is not a medical device and must not be used for clinical decisions.**
 
 <div align="center">
-<sub>Built for the 2026 NASA Space Apps Challenge · <i>The Next Frontier</i></sub>
+<sub>Built by Team Apogee for the 2026 NASA Space Apps Challenge · <i>The Next Frontier</i></sub>
 </div>
